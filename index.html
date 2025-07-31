@@ -43,86 +43,7 @@ document.addEventListener('touchmove', function (e) {
   }
 }, { passive: false });
 </script>
-<script>
-// === 防止 Kiwi 浏览器下拉刷新 ===
-(function() {
-  let startY = 0;
-  document.addEventListener('touchstart', function(e) {
-    if (e.touches.length > 1) {
-      e.preventDefault();
-    }
-    startY = e.touches[0].clientY;
-  }, { passive: false });
 
-  document.addEventListener('touchmove', function(e) {
-    const currentY = e.touches[0].clientY;
-    const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-    if (scrollTop <= 0 && currentY > startY) {
-      e.preventDefault();
-    }
-    if (window.scrollY < 30 && currentY > startY) {
-      e.preventDefault();
-    }
-  }, { passive: false });
-
-  document.documentElement.style.overscrollBehaviorY = 'none';
-})();
-
-// === localStorage 数据持久化处理 ===
-(function() {
-  const STORAGE_KEY = 'scan_records';
-  const tableBody = document.querySelector("#records-body");
-
-  function saveToLocalStorage() {
-    const rows = Array.from(tableBody.querySelectorAll("tr")).map(tr => {
-      return Array.from(tr.querySelectorAll("td")).slice(0, 4).map(td => td.innerText);
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-  }
-
-  function loadFromLocalStorage() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const data = JSON.parse(saved);
-      data.forEach((row, idx) => {
-        const tr = document.createElement("tr");
-        row.forEach(cell => {
-          const td = document.createElement("td");
-          td.textContent = cell;
-          tr.appendChild(td);
-        });
-        const delTd = document.createElement("td");
-        delTd.innerHTML = '<span class="del-btn">删除</span>';
-        tr.appendChild(delTd);
-        tableBody.appendChild(tr);
-      });
-    }
-  }
-
-  
-  document.addEventListener("DOMContentLoaded", () => {
-  loadFromLocalStorage();
-  hookMutationSave();
-  hookClearButton();
-
-  // 监听扫码记录表格变化立即保存
-  const observer = new MutationObserver(() => {
-    saveToLocalStorage();
-  });
-  observer.observe(document.querySelector("#records-body"), {
-    childList: true,
-    subtree: true
-  });
-
-  // 删除按钮绑定保存逻辑
-  document.querySelector("#records-body").addEventListener("click", (e) => {
-    if (e.target.classList.contains("del-btn")) {
-      saveToLocalStorage();
-    }
-  });
-});
-})();
-</script>
 </head>
 <body>
 <h3>📦 快递扫码助手（兼容修复版）</h3>
@@ -292,5 +213,39 @@ document.getElementById('custom-audio-upload').addEventListener('change', functi
   };
   reader.readAsDataURL(file);
 });</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  function hookMutationSave() {
+    const tableBody = document.querySelector("#records-body");
+    if (!tableBody) return;
+    const observer = new MutationObserver(() => {
+      const rows = Array.from(tableBody.querySelectorAll("tr")).map(tr => {
+        return Array.from(tr.querySelectorAll("td")).slice(0, 4).map(td => td.innerText);
+      });
+      localStorage.setItem(location.pathname + ":scan_records", JSON.stringify(rows));
+    });
+    observer.observe(tableBody, { childList: true, subtree: true });
+  }
+
+  function hookClearButton() {
+    const btn = document.querySelector("#clear-btn");
+    const tableBody = document.querySelector("#records-body");
+    if (btn && tableBody) {
+      btn.addEventListener("click", () => {
+        tableBody.innerHTML = "";
+        localStorage.setItem(location.pathname + ":scan_records", "[]");
+      });
+    }
+  }
+
+  try {
+    hookMutationSave();
+    hookClearButton();
+  } catch (e) {
+    console.error("初始化失败:", e);
+  }
+});
+</script>
 </body>
 </html>
