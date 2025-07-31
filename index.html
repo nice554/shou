@@ -15,7 +15,6 @@
   #records th, #records td { border: 1px solid #ccc; padding: 6px; text-align: left; }
   .del-btn { cursor: pointer; color: blue; text-decoration: underline; margin-right: 5px; font-size: 13px; }
 </style>
-
 <style>
 html, body {
   overscroll-behavior-y: contain;
@@ -44,8 +43,6 @@ document.addEventListener('touchmove', function (e) {
   }
 }, { passive: false });
 </script>
-
-
 <script>
 // === 防止 Kiwi 浏览器下拉刷新 ===
 (function() {
@@ -74,7 +71,7 @@ document.addEventListener('touchmove', function (e) {
 // === localStorage 数据持久化处理 ===
 (function() {
   const STORAGE_KEY = 'scan_records';
-  const tableBody = document.querySelector("#records tbody");
+  const tableBody = document.querySelector("#records-body");
 
   function saveToLocalStorage() {
     const rows = Array.from(tableBody.querySelectorAll("tr")).map(tr => {
@@ -112,13 +109,13 @@ document.addEventListener('touchmove', function (e) {
   const observer = new MutationObserver(() => {
     saveToLocalStorage();
   });
-  observer.observe(document.querySelector("#records tbody"), {
+  observer.observe(document.querySelector("#records-body"), {
     childList: true,
     subtree: true
   });
 
   // 删除按钮绑定保存逻辑
-  document.querySelector("#records tbody").addEventListener("click", (e) => {
+  document.querySelector("#records-body").addEventListener("click", (e) => {
     if (e.target.classList.contains("del-btn")) {
       saveToLocalStorage();
     }
@@ -126,7 +123,6 @@ document.addEventListener('touchmove', function (e) {
 });
 })();
 </script>
-
 </head>
 <body>
 <h3>📦 快递扫码助手（兼容修复版）</h3>
@@ -140,7 +136,7 @@ document.addEventListener('touchmove', function (e) {
 <div class="stat" id="stat" style="margin: 10px 0;"></div>
 <table id="records">
 <thead><tr><th>#</th><th>时间</th><th>快递</th><th>处理后</th><th>操作</th></tr></thead>
-<tbody></tbody>
+<tbody id="records-body"></tbody>
 </table>
 <div id="pagination" style="text-align: center; margin-top: 10px;"></div>
 <details>
@@ -199,7 +195,7 @@ function updateStats() {
 }
 
 function renderTable() {
-  const tbody = document.querySelector('#records tbody');
+  const tbody = document.querySelector('#records-body');
   const searchTerm = document.getElementById('search-box').value.toLowerCase();
   const filtered = recs.filter(r => Object.values(r).join('').toLowerCase().includes(searchTerm));
   const totalPages = Math.ceil(filtered.length / perPage);
