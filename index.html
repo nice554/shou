@@ -104,10 +104,26 @@ document.addEventListener('touchmove', function (e) {
 
   
   document.addEventListener("DOMContentLoaded", () => {
-    loadFromLocalStorage();
-    hookMutationSave();
-    hookClearButton();
+  loadFromLocalStorage();
+  hookMutationSave();
+  hookClearButton();
+
+  // 监听扫码记录表格变化立即保存
+  const observer = new MutationObserver(() => {
+    saveToLocalStorage();
   });
+  observer.observe(document.querySelector("#records tbody"), {
+    childList: true,
+    subtree: true
+  });
+
+  // 删除按钮绑定保存逻辑
+  document.querySelector("#records tbody").addEventListener("click", (e) => {
+    if (e.target.classList.contains("del-btn")) {
+      saveToLocalStorage();
+    }
+  });
+});
 })();
 </script>
 
