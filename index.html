@@ -43,7 +43,6 @@ document.addEventListener('touchmove', function (e) {
   }
 }, { passive: false });
 </script>
-
 </head>
 <body>
 <h3>📦 快递扫码助手（兼容修复版）</h3>
@@ -214,6 +213,7 @@ document.getElementById('custom-audio-upload').addEventListener('change', functi
   reader.readAsDataURL(file);
 });</script>
 
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   function hookMutationSave() {
@@ -230,13 +230,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function hookClearButton() {
     const btn = document.querySelector("#clear-btn");
-    const tableBody = document.querySelector("#records-body");
-    if (btn && tableBody) {
-      btn.addEventListener("click", () => {
-        tableBody.innerHTML = "";
-        localStorage.setItem(location.pathname + ":scan_records", "[]");
-      });
+    if (!btn) {
+      console.warn("Clear button not found, skipping binding.");
+      return;
     }
+    const tableBody = document.querySelector("#records-body");
+    if (!tableBody) {
+      console.warn("records-body not found.");
+      return;
+    }
+    btn.addEventListener("click", () => {
+      tableBody.innerHTML = "";
+      localStorage.setItem(location.pathname + ":scan_records", "[]");
+    });
   }
 
   try {
