@@ -70,7 +70,7 @@ document.addEventListener('touchmove', function (e) {
 
 // === localStorage 数据持久化处理 ===
 (function() {
-  const STORAGE_KEY = location.pathname + ":scan_records";
+  const STORAGE_KEY = 'scan_records';
   const tableBody = document.querySelector("#records-body");
 
   function saveToLocalStorage() {
