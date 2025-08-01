@@ -275,8 +275,6 @@ document.getElementById("copy-btn").addEventListener("click", function () {
   });
 });
 </script>
-
-
 <script>
 document.getElementById("upload-btn").addEventListener("click", function () {
   const rows = document.querySelectorAll("#records tbody tr");
@@ -317,6 +315,27 @@ document.getElementById("upload-btn").addEventListener("click", function () {
   }).catch(err => {
     alert("上传失败：" + err);
   });
+});
+</script>
+
+<script>
+// 拦截浏览器返回或刷新行为
+window.addEventListener("beforeunload", function (e) {
+  e.preventDefault();
+  e.returnValue = "";
+});
+
+// 弹窗确认返回（适用于安卓浏览器返回键触发 popstate 的情况）
+window.addEventListener("popstate", function (e) {
+  const confirmed = confirm("你确定要离开当前页面吗？扫码数据可能会丢失！");
+  if (!confirmed) {
+    history.pushState(null, "", location.href);
+  }
+});
+
+// 初始化一条伪历史记录，防止直接退出
+window.addEventListener("load", function () {
+  history.pushState(null, "", location.href);
 });
 </script>
 </body>
