@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导出功能测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .test-data { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>导出功能测试页面</h1>
+    
+    <div class="test-data">
+        <h3>测试数据：</h3>
+        <p>时间: 14:30:25, 快递: UPS, 处理后: 1Z123456789</p>
+        <p>时间: 14:31:10, 快递: DHL, 处理后: 1234567890</p>
+        <p>时间: 14:32:05, 快递: FedEx, 处理后: 9876543210</p>
+    </div>
+    
+    <button onclick="testExport()">测试导出功能</button>
+    <button onclick="showEnvironmentInfo()">显示环境信息</button>
+    
+    <div id="result"></div>
+
+    <script>
+        // 模拟测试数据
+        const testData = [
+            { time: '14:30:25', mode: 'UPS', out: '1Z123456789' },
+            { time: '14:31:10', mode: 'DHL', out: '1234567890' },
+            { time: '14:32:05', mode: 'FedEx', out: '9876543210' }
+        ];
+
+        function testExport() {
+            try {
+                // 生成文件名
+                const now = new Date();
+                const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
+                const filename = `${mmddyyyy}_TestExport.csv`;
+                
+                // 生成 CSV 内容
+                const csvContent = "时间,快递,处理后\n" + testData.map(r => `"${r.time}","${r.mode}","${r.out}"`).join("\n");
+                
+                // 创建 Blob
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                
+                // 创建下载链接
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.style.display = 'none';
+                
+                // 添加到页面并触发下载
+                document.body.appendChild(link);
+                link.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                document.getElementById('result').innerHTML = `
+                    <div style="color: green; margin-top: 20px;">
+                        ✅ 导出测试成功！<br>
+                        文件名: ${filename}<br>
+                        记录数: ${testData.length} 条<br>
+                        请检查下载目录
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('导出失败:', error);
+                document.getElementById('result').innerHTML = `
+                    <div style="color: red; margin-top: 20px;">
+                        ❌ 导出测试失败：${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function showEnvironmentInfo() {
+            const info = {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                hasBlob: typeof Blob !== 'undefined',
+                hasURL: typeof URL !== 'undefined',
+                hasCreateElement: typeof document.createElement !== 'undefined'
+            };
+            
+            document.getElementById('result').innerHTML = `
+                <div style="background: #e3f2fd; padding: 15px; margin-top: 20px;">
+                    <h3>环境信息：</h3>
+                    <p><strong>用户代理：</strong> ${info.userAgent}</p>
+                    <p><strong>平台：</strong> ${info.platform}</p>
+                    <p><strong>Blob 支持：</strong> ${info.hasBlob ? '✅ 是' : '❌ 否'}</p>
+                    <p><strong>URL 支持：</strong> ${info.hasURL ? '✅ 是' : '❌ 否'}</p>
+                    <p><strong>DOM 支持：</strong> ${info.hasCreateElement ? '✅ 是' : '❌ 否'}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

@@ -211,46 +211,48 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
 
 document.getElementById('search-box').addEventListener('input', () => renderTable());
 
-document.getElementById('export-btn').onclick = async () => {
-  const data = recs.map(r => ({ 时间: r.time, 快递: r.mode, 处理后: r.out }));
-  const now = new Date();
-  const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
-  
-  // 检测是否在移动设备或 Capacitor 环境中
-  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                   window.Capacitor || 
-                   window.cordova;
-  
-  if (isMobile && window.Capacitor) {
-    // Capacitor 环境：使用文件系统 API 保存 CSV
-    const csv = "时间,快递,处理后\n" + recs.map(r => `${r.time},${r.mode},${r.out}`).join("\n");
+document.getElementById('export-btn').onclick = () => {
+  try {
+    // 检查是否有数据
+    if (recs.length === 0) {
+      alert("❌ 没有数据可以导出，请先扫描一些条码。");
+      return;
+    }
+
+    // 生成文件名
+    const now = new Date();
+    const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
     const filename = `${mmddyyyy}_TrackingNumber.csv`;
     
-    const success = await exportFileWithCapacitor(csv, filename, 'text/csv');
-    if (!success) {
-      // 如果 Capacitor 导出失败，回退到浏览器下载
-      fallbackToDownload(csv, filename, 'text/csv');
-    }
-  } else if (isMobile) {
-    // 普通移动浏览器：导出为 CSV 格式
-    const csv = "时间,快递,处理后\n" + recs.map(r => `${r.time},${r.mode},${r.out}`).join("\n");
-    const filename = `${mmddyyyy}_TrackingNumber.csv`;
-    fallbackToDownload(csv, filename, 'text/csv');
-    alert("📱 移动端已导出为 CSV 格式，您可以在下载文件夹中找到该文件");
-  } else {
-    // 桌面设备：使用 XLSX 导出 Excel
-    if (typeof XLSX !== 'undefined') {
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "记录");
-      XLSX.writeFile(wb, `${mmddyyyy}_TrackingNumber.xlsx`);
-    } else {
-      // 如果 XLSX 库未加载，回退到 CSV
-      const csv = "时间,快递,处理后\n" + recs.map(r => `${r.time},${r.mode},${r.out}`).join("\n");
-      const filename = `${mmddyyyy}_TrackingNumber.csv`;
-      fallbackToDownload(csv, filename, 'text/csv');
-      alert("⚠️ Excel 库未加载，已导出为 CSV 格式");
-    }
+    // 生成 CSV 内容
+    const csvContent = "时间,快递,处理后\n" + recs.map(r => `"${r.time}","${r.mode}","${r.out}"`).join("\n");
+    
+    // 创建 Blob
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    // 添加到页面并触发下载
+    document.body.appendChild(link);
+    link.click();
+    
+    // 清理
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    // 显示成功消息
+    alert(`✅ 文件已导出：${filename}\n格式：CSV\n记录数：${recs.length} 条\n\n请在浏览器下载目录或文件管理器中查找该文件。`);
+    
+  } catch (error) {
+    console.error('导出失败:', error);
+    alert(`❌ 导出失败：${error.message}\n\n请尝试以下解决方案：\n1. 检查浏览器是否允许下载\n2. 确保有足够的存储空间\n3. 重新刷新页面后再试`);
   }
 };
 
@@ -264,17 +266,79 @@ function fallbackToDownload(content, filename, mimeType) {
 }
 
 document.getElementById('export-csv-btn').onclick = () => {
-  const csv = recs.map(r => `${r.time},${r.mode},${r.orig},${r.out}`).join("\n");
-  const blob = new Blob(["时间,快递,原始,处理后\n" + csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  const now = new Date();
-const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
-link.download = `${mmddyyyy}_TrackingNumber.csv`;
-  link.click();
+  try {
+    // 检查是否有数据
+    if (recs.length === 0) {
+      alert("❌ 没有数据可以导出，请先扫描一些条码。");
+      return;
+    }
+
+    // 生成文件名
+    const now = new Date();
+    const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
+    const filename = `${mmddyyyy}_TrackingNumber_Full.csv`;
+    
+    // 生成 CSV 内容（包含原始数据）
+    const csvContent = "时间,快递,原始,处理后\n" + recs.map(r => `"${r.time}","${r.mode}","${r.orig}","${r.out}"`).join("\n");
+    
+    // 创建 Blob
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    // 添加到页面并触发下载
+    document.body.appendChild(link);
+    link.click();
+    
+    // 清理
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    // 显示成功消息
+    alert(`✅ 完整数据已导出：${filename}\n格式：CSV（包含原始条码）\n记录数：${recs.length} 条\n\n请在浏览器下载目录或文件管理器中查找该文件。`);
+    
+  } catch (error) {
+    console.error('CSV导出失败:', error);
+    alert(`❌ CSV导出失败：${error.message}\n\n请尝试刷新页面后再试。`);
+  }
 };
 
 document.getElementById('clear-btn').onclick = () => { recs = []; renderTable(); };
+
+// 添加调试信息功能
+function showDebugInfo() {
+  const info = {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    isCapacitor: !!window.Capacitor,
+    isCordova: !!window.cordova,
+    hasBlob: typeof Blob !== 'undefined',
+    hasURL: typeof URL !== 'undefined',
+    recordsCount: recs.length,
+    sampleRecord: recs[0] || null
+  };
+  
+  console.log('调试信息:', info);
+  alert(`🔧 调试信息：
+浏览器：${navigator.userAgent.substring(0, 50)}...
+平台：${navigator.platform}
+记录数：${recs.length}
+Blob支持：${info.hasBlob ? '✅' : '❌'}
+URL支持：${info.hasURL ? '✅' : '❌'}
+Capacitor：${info.isCapacitor ? '✅' : '❌'}
+
+${recs.length > 0 ? '✅ 有数据可以导出' : '❌ 没有数据，请先扫描条码'}`);
+}
+
+// 双击标题显示调试信息
+document.querySelector('h1').addEventListener('dblclick', showDebugInfo);
 document.getElementById('custom-audio-upload').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
