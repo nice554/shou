@@ -211,11 +211,36 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
 
 document.getElementById('search-box').addEventListener('input', () => renderTable());
 
-document.getElementById('export-btn').onclick = () => {
+// 请求存储权限
+async function requestStoragePermission() {
+  if (window.Capacitor && window.Capacitor.Plugins.Permissions) {
+    try {
+      const permission = await window.Capacitor.Plugins.Permissions.query({ name: 'storage' });
+      if (permission.state !== 'granted') {
+        const result = await window.Capacitor.Plugins.Permissions.request({ name: 'storage' });
+        return result.state === 'granted';
+      }
+      return true;
+    } catch (error) {
+      console.log('权限请求失败:', error);
+      return true; // 如果权限API不可用，假设有权限
+    }
+  }
+  return true; // 非Capacitor环境，假设有权限
+}
+
+document.getElementById('export-btn').onclick = async () => {
   try {
     // 检查是否有数据
     if (recs.length === 0) {
       alert("❌ 没有数据可以导出，请先扫描一些条码。");
+      return;
+    }
+
+    // 请求存储权限
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      alert("❌ 需要存储权限才能导出文件。请在设置中允许应用访问存储。");
       return;
     }
 
@@ -265,11 +290,18 @@ function fallbackToDownload(content, filename, mimeType) {
   link.click();
 }
 
-document.getElementById('export-csv-btn').onclick = () => {
+document.getElementById('export-csv-btn').onclick = async () => {
   try {
     // 检查是否有数据
     if (recs.length === 0) {
       alert("❌ 没有数据可以导出，请先扫描一些条码。");
+      return;
+    }
+
+    // 请求存储权限
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) {
+      alert("❌ 需要存储权限才能导出文件。请在设置中允许应用访问存储。");
       return;
     }
 
