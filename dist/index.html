@@ -211,22 +211,81 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
 
 document.getElementById('search-box').addEventListener('input', () => renderTable());
 
-// 请求存储权限
-async function requestStoragePermission() {
-  if (window.Capacitor && window.Capacitor.Plugins.Permissions) {
+// 使用 Capacitor 文件系统直接保存到设备存储
+async function saveFileToDevice(content, filename) {
+  if (window.Capacitor && window.Capacitor.Plugins.Filesystem) {
     try {
-      const permission = await window.Capacitor.Plugins.Permissions.query({ name: 'storage' });
-      if (permission.state !== 'granted') {
-        const result = await window.Capacitor.Plugins.Permissions.request({ name: 'storage' });
-        return result.state === 'granted';
+      const { Filesystem, Directory } = window.Capacitor.Plugins;
+      
+      // 尝试保存到多个位置，按优先级排序
+      const locations = [
+        { dir: Directory.Documents, name: '文档目录' },
+        { dir: Directory.ExternalStorage, name: '外部存储根目录' },
+        { dir: Directory.Data, name: '应用数据目录' }
+      ];
+      
+      for (let location of locations) {
+        try {
+          // 写入文件
+          await Filesystem.writeFile({
+            path: filename,
+            data: content,
+            directory: location.dir,
+            encoding: 'utf8'
+          });
+          
+          // 获取文件完整路径
+          const fileUri = await Filesystem.getUri({
+            directory: location.dir,
+            path: filename
+          });
+          
+          return {
+            success: true,
+            location: location.name,
+            path: fileUri.uri,
+            filename: filename
+          };
+          
+        } catch (error) {
+          console.log(`保存到${location.name}失败:`, error);
+          continue; // 尝试下一个位置
+        }
       }
-      return true;
+      
+      return { success: false, error: '所有保存位置都失败了' };
+      
     } catch (error) {
-      console.log('权限请求失败:', error);
-      return true; // 如果权限API不可用，假设有权限
+      console.error('Capacitor 文件系统不可用:', error);
+      return { success: false, error: error.message };
     }
   }
-  return true; // 非Capacitor环境，假设有权限
+  
+  return { success: false, error: 'Capacitor 不可用' };
+}
+
+// 回退到浏览器下载
+function fallbackBrowserDownload(content, filename) {
+  try {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    return { success: true, location: '浏览器下载目录' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 }
 
 document.getElementById('export-btn').onclick = async () => {
@@ -234,13 +293,6 @@ document.getElementById('export-btn').onclick = async () => {
     // 检查是否有数据
     if (recs.length === 0) {
       alert("❌ 没有数据可以导出，请先扫描一些条码。");
-      return;
-    }
-
-    // 请求存储权限
-    const hasPermission = await requestStoragePermission();
-    if (!hasPermission) {
-      alert("❌ 需要存储权限才能导出文件。请在设置中允许应用访问存储。");
       return;
     }
 
@@ -252,32 +304,49 @@ document.getElementById('export-btn').onclick = async () => {
     // 生成 CSV 内容
     const csvContent = "时间,快递,处理后\n" + recs.map(r => `"${r.time}","${r.mode}","${r.out}"`).join("\n");
     
-    // 创建 Blob
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // 首先尝试保存到设备存储
+    const deviceResult = await saveFileToDevice(csvContent, filename);
     
-    // 创建下载链接
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    
-    // 添加到页面并触发下载
-    document.body.appendChild(link);
-    link.click();
-    
-    // 清理
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
-    
-    // 显示成功消息
-    alert(`✅ 文件已导出：${filename}\n格式：CSV\n记录数：${recs.length} 条\n\n请在浏览器下载目录或文件管理器中查找该文件。`);
+    if (deviceResult.success) {
+      // 成功保存到设备存储
+      alert(`✅ 文件已保存到设备存储！
+📁 位置：${deviceResult.location}
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条
+
+💡 查找方法：
+1. 打开文件管理器
+2. 查看"文档"或"Documents"文件夹
+3. 或者搜索文件名：${filename.split('_')[0]}`);
+    } else {
+      // 回退到浏览器下载
+      console.log('设备保存失败，使用浏览器下载:', deviceResult.error);
+      const browserResult = fallbackBrowserDownload(csvContent, filename);
+      
+      if (browserResult.success) {
+        alert(`✅ 文件已通过浏览器下载！
+📁 位置：${browserResult.location}
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条
+
+💡 查找方法：
+1. 打开文件管理器
+2. 查看"下载"或"Download"文件夹
+3. 或者在浏览器的下载记录中查看`);
+      } else {
+        throw new Error(browserResult.error);
+      }
+    }
     
   } catch (error) {
     console.error('导出失败:', error);
-    alert(`❌ 导出失败：${error.message}\n\n请尝试以下解决方案：\n1. 检查浏览器是否允许下载\n2. 确保有足够的存储空间\n3. 重新刷新页面后再试`);
+    alert(`❌ 导出失败：${error.message}
+
+🔧 解决方案：
+1. 确保应用有存储权限
+2. 检查存储空间是否充足
+3. 重启应用后再试
+4. 如果问题持续，双击标题查看调试信息`);
   }
 };
 
@@ -298,13 +367,6 @@ document.getElementById('export-csv-btn').onclick = async () => {
       return;
     }
 
-    // 请求存储权限
-    const hasPermission = await requestStoragePermission();
-    if (!hasPermission) {
-      alert("❌ 需要存储权限才能导出文件。请在设置中允许应用访问存储。");
-      return;
-    }
-
     // 生成文件名
     const now = new Date();
     const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
@@ -313,32 +375,48 @@ document.getElementById('export-csv-btn').onclick = async () => {
     // 生成 CSV 内容（包含原始数据）
     const csvContent = "时间,快递,原始,处理后\n" + recs.map(r => `"${r.time}","${r.mode}","${r.orig}","${r.out}"`).join("\n");
     
-    // 创建 Blob
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // 首先尝试保存到设备存储
+    const deviceResult = await saveFileToDevice(csvContent, filename);
     
-    // 创建下载链接
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    
-    // 添加到页面并触发下载
-    document.body.appendChild(link);
-    link.click();
-    
-    // 清理
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
-    
-    // 显示成功消息
-    alert(`✅ 完整数据已导出：${filename}\n格式：CSV（包含原始条码）\n记录数：${recs.length} 条\n\n请在浏览器下载目录或文件管理器中查找该文件。`);
+    if (deviceResult.success) {
+      // 成功保存到设备存储
+      alert(`✅ 完整数据已保存到设备存储！
+📁 位置：${deviceResult.location}
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条（包含原始条码）
+
+💡 查找方法：
+1. 打开文件管理器
+2. 查看"文档"或"Documents"文件夹
+3. 或者搜索文件名：${filename.split('_')[0]}`);
+    } else {
+      // 回退到浏览器下载
+      console.log('设备保存失败，使用浏览器下载:', deviceResult.error);
+      const browserResult = fallbackBrowserDownload(csvContent, filename);
+      
+      if (browserResult.success) {
+        alert(`✅ 完整数据已通过浏览器下载！
+📁 位置：${browserResult.location}
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条（包含原始条码）
+
+💡 查找方法：
+1. 打开文件管理器
+2. 查看"下载"或"Download"文件夹
+3. 或者在浏览器的下载记录中查看`);
+      } else {
+        throw new Error(browserResult.error);
+      }
+    }
     
   } catch (error) {
     console.error('CSV导出失败:', error);
-    alert(`❌ CSV导出失败：${error.message}\n\n请尝试刷新页面后再试。`);
+    alert(`❌ CSV导出失败：${error.message}
+
+🔧 解决方案：
+1. 确保应用有存储权限
+2. 检查存储空间是否充足
+3. 重启应用后再试`);
   }
 };
 
