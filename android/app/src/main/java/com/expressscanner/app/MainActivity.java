@@ -10,6 +10,8 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ArrayAdapter;
+import android.widget.Spinner;
+import android.widget.AdapterView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -34,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
     private Button clearButton;
     private TextView statsText;
     private ListView recordsList;
+    private Spinner modeSpinner;
+    private TextView emptyText;
     
     private List<ScanRecord> scanRecords = new ArrayList<>();
     private ArrayAdapter<String> listAdapter;
@@ -65,6 +69,17 @@ public class MainActivity extends AppCompatActivity {
         clearButton = findViewById(R.id.clear_button);
         statsText = findViewById(R.id.stats_text);
         recordsList = findViewById(R.id.records_list);
+        modeSpinner = findViewById(R.id.mode_spinner);
+        emptyText = findViewById(R.id.empty_text);
+        
+        // 设置快递模式选择器
+        String[] modes = {"UPS", "FedEx", "USPS", "Amazon", "DHL", "顺丰", "圆通", "中通", "申通", "韵达", "通用"};
+        ArrayAdapter<String> modeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, modes);
+        modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        modeSpinner.setAdapter(modeAdapter);
+        
+        // 设置默认选择 UPS
+        modeSpinner.setSelection(0);
     }
     
     private void setupListeners() {
@@ -73,6 +88,19 @@ public class MainActivity extends AppCompatActivity {
         exportButton.setOnClickListener(v -> exportData(false));
         exportCsvButton.setOnClickListener(v -> exportData(true));
         clearButton.setOnClickListener(v -> clearRecords());
+        
+        // 快递模式选择监听
+        modeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                currentMode = parent.getItemAtPosition(position).toString();
+            }
+            
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                currentMode = "UPS";
+            }
+        });
         
         // 手动输入条码
         barcodeInput.setOnEditorActionListener((v, actionId, event) -> {
@@ -160,6 +188,37 @@ public class MainActivity extends AppCompatActivity {
                     return code;
                 }
                 break;
+            case "DHL":
+                if (code.length() >= 10 && code.matches("^[0-9]+$")) {
+                    return code;
+                }
+                break;
+            case "顺丰":
+                if (code.matches("^SF[0-9]{12}$") || code.matches("^[0-9]{12}$")) {
+                    return code.startsWith("SF") ? code : "SF" + code;
+                }
+                break;
+            case "圆通":
+                if (code.matches("^YT[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
+                    return code.startsWith("YT") ? code : "YT" + code;
+                }
+                break;
+            case "中通":
+                if (code.matches("^ZTO[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
+                    return code.startsWith("ZTO") ? code : "ZTO" + code;
+                }
+                break;
+            case "申通":
+                if (code.matches("^STO[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
+                    return code.startsWith("STO") ? code : "STO" + code;
+                }
+                break;
+            case "韵达":
+                if (code.matches("^YD[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
+                    return code.startsWith("YD") ? code : "YD" + code;
+                }
+                break;
+            case "通用":
             default:
                 return code; // 通用模式，返回原始条码
         }
@@ -171,21 +230,34 @@ public class MainActivity extends AppCompatActivity {
         int totalCount = scanRecords.size();
         
         // 统计各快递公司数量
-        int upsCount = 0, fedexCount = 0, uspsCount = 0, amazonCount = 0;
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
         
         for (ScanRecord record : scanRecords) {
-            switch (record.getMode()) {
-                case "UPS": upsCount++; break;
-                case "FedEx": fedexCount++; break;
-                case "USPS": uspsCount++; break;
-                case "Amazon": amazonCount++; break;
-            }
+            String mode = record.getMode();
+            counts.put(mode, counts.getOrDefault(mode, 0) + 1);
         }
         
-        String statsInfo = String.format("总计: %d | UPS: %d | FedEx: %d | USPS: %d | Amazon: %d", 
-            totalCount, upsCount, fedexCount, uspsCount, amazonCount);
+        StringBuilder statsBuilder = new StringBuilder();
+        statsBuilder.append("总计: ").append(totalCount);
         
-        statsText.setText(statsInfo);
+        // 显示前5个最多的快递公司
+        counts.entrySet().stream()
+            .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
+            .limit(5)
+            .forEach(entry -> {
+                statsBuilder.append(" | ").append(entry.getKey()).append(": ").append(entry.getValue());
+            });
+        
+        statsText.setText(statsBuilder.toString());
+        
+        // 控制空状态显示
+        if (totalCount == 0) {
+            emptyText.setVisibility(View.VISIBLE);
+            recordsList.setVisibility(View.GONE);
+        } else {
+            emptyText.setVisibility(View.GONE);
+            recordsList.setVisibility(View.VISIBLE);
+        }
     }
     
     private void exportData(boolean includeOriginal) {
