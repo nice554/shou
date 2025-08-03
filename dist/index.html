@@ -211,78 +211,86 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
 
 document.getElementById('search-box').addEventListener('input', () => renderTable());
 
-// 强制使用浏览器下载，最兼容的方式
-function forceDownload(content, filename) {
+// 使用原生文件管理插件保存文件
+async function saveFileWithNativePlugin(content, filename) {
+  if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
+    try {
+      console.log('使用原生文件管理插件保存文件:', filename);
+      
+      // 首先请求权限
+      const permissionResult = await window.Capacitor.Plugins.FileManager.requestPermissions();
+      console.log('权限请求结果:', permissionResult);
+      
+      // 尝试保存到下载文件夹
+      try {
+        const downloadResult = await window.Capacitor.Plugins.FileManager.saveFileToDownloads({
+          filename: filename,
+          content: content
+        });
+        
+        console.log('保存到下载文件夹成功:', downloadResult);
+        return {
+          success: true,
+          location: '下载文件夹',
+          path: downloadResult.path,
+          method: '原生文件管理'
+        };
+        
+      } catch (downloadError) {
+        console.log('保存到下载文件夹失败，尝试文档文件夹:', downloadError);
+        
+        // 如果下载文件夹失败，尝试文档文件夹
+        const docResult = await window.Capacitor.Plugins.FileManager.saveFileToDocuments({
+          filename: filename,
+          content: content
+        });
+        
+        console.log('保存到文档文件夹成功:', docResult);
+        return {
+          success: true,
+          location: '文档文件夹',
+          path: docResult.path,
+          method: '原生文件管理'
+        };
+      }
+      
+    } catch (error) {
+      console.error('原生文件管理插件失败:', error);
+      return { success: false, error: error.message };
+    }
+  }
+  
+  return { success: false, error: '原生文件管理插件不可用' };
+}
+
+// 回退到浏览器下载
+function fallbackBrowserDownload(content, filename) {
   try {
-    console.log('开始导出文件:', filename);
-    console.log('内容长度:', content.length);
+    console.log('使用浏览器下载方式');
     
     // 添加 BOM 以确保 UTF-8 编码正确
     const BOM = '\uFEFF';
     const csvWithBOM = BOM + content;
     
-    // 创建 Blob
-    const blob = new Blob([csvWithBOM], { 
-      type: 'text/csv;charset=utf-8;' 
-    });
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
     
-    console.log('Blob 创建成功, 大小:', blob.size);
+    document.body.appendChild(link);
+    link.click();
     
-    // 检查是否在 Android WebView 中
-    const isAndroidWebView = /Android/.test(navigator.userAgent) && /wv/.test(navigator.userAgent);
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1000);
     
-    if (isAndroidWebView) {
-      // Android WebView 特殊处理
-      console.log('检测到 Android WebView，使用特殊下载方式');
-      
-      // 方法1: 尝试使用 data URL
-      const reader = new FileReader();
-      reader.onload = function() {
-        const dataUrl = reader.result;
-        const link = document.createElement('a');
-        link.href = dataUrl;
-        link.download = filename;
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        
-        setTimeout(() => {
-          document.body.removeChild(link);
-        }, 1000);
-        
-        console.log('Android WebView 下载触发完成');
-      };
-      reader.readAsDataURL(blob);
-      
-    } else {
-      // 标准浏览器处理
-      console.log('使用标准浏览器下载方式');
-      
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.style.display = 'none';
-      
-      // 确保链接被添加到 DOM
-      document.body.appendChild(link);
-      
-      // 触发点击
-      link.click();
-      
-      // 延迟清理
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        console.log('标准下载清理完成');
-      }, 1000);
-    }
-    
-    return { success: true, method: isAndroidWebView ? 'Android WebView' : '标准浏览器' };
+    return { success: true, location: '浏览器下载目录', method: '浏览器下载' };
     
   } catch (error) {
-    console.error('下载失败:', error);
+    console.error('浏览器下载失败:', error);
     return { success: false, error: error.message };
   }
 }
@@ -311,7 +319,7 @@ function fallbackBrowserDownload(content, filename) {
   }
 }
 
-document.getElementById('export-btn').onclick = () => {
+document.getElementById('export-btn').onclick = async () => {
   try {
     // 检查是否有数据
     if (recs.length === 0) {
@@ -331,29 +339,53 @@ document.getElementById('export-btn').onclick = () => {
     
     console.log('CSV 内容生成完成:', csvContent.substring(0, 100) + '...');
     
-    // 强制下载
-    const result = forceDownload(csvContent, filename);
+    // 首先尝试原生文件管理
+    const nativeResult = await saveFileWithNativePlugin(csvContent, filename);
     
-    if (result.success) {
-      // 显示成功消息
-      setTimeout(() => {
-        alert(`✅ 导出完成！
+    if (nativeResult.success) {
+      // 原生保存成功
+      alert(`✅ 文件已直接保存到设备！
+📁 位置：${nativeResult.location}
 📄 文件名：${filename}
 📊 记录数：${recs.length} 条
-🔧 方式：${result.method}
+🔧 方式：${nativeResult.method}
 
 📂 查找文件：
-• Android: 文件管理器 → 下载文件夹
+• 打开文件管理器
+• 查看"${nativeResult.location}"
 • 或搜索：${filename}
-• 或按时间查看最新文件
 
-💡 如果找不到文件，请检查：
-1. 浏览器下载权限
-2. 存储空间
-3. 下载文件夹设置`);
-      }, 500);
+💡 文件路径：
+${nativeResult.path || '系统存储路径'}`);
+      
+      // 可选：打开文件管理器
+      if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
+        try {
+          await window.Capacitor.Plugins.FileManager.openFileManager();
+        } catch (e) {
+          console.log('打开文件管理器失败:', e);
+        }
+      }
+      
     } else {
-      throw new Error(result.error);
+      // 回退到浏览器下载
+      console.log('原生保存失败，使用浏览器下载:', nativeResult.error);
+      const browserResult = fallbackBrowserDownload(csvContent, filename);
+      
+      if (browserResult.success) {
+        alert(`✅ 文件已通过浏览器下载！
+📁 位置：${browserResult.location}
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条
+🔧 方式：${browserResult.method}
+
+📂 查找文件：
+• 文件管理器 → 下载文件夹
+• 或搜索：${filename}
+• 或按时间查看最新文件`);
+      } else {
+        throw new Error(browserResult.error);
+      }
     }
     
   } catch (error) {
@@ -361,9 +393,9 @@ document.getElementById('export-btn').onclick = () => {
     alert(`❌ 导出失败：${error.message}
 
 🔧 请尝试：
-1. 刷新页面后重试
-2. 检查浏览器下载权限
-3. 确保存储空间充足
+1. 允许应用的存储权限
+2. 刷新页面后重试
+3. 检查存储空间是否充足
 4. 双击标题查看调试信息`);
   }
 };

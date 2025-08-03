@@ -39,16 +39,24 @@
 
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- 存储权限 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     
-    <!-- For Android 10+ (API 29+) scoped storage -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" 
-        android:maxSdkVersion="32" />
+    <!-- Android 11+ (API 30+) 管理外部存储权限 -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     
-    <!-- For downloading files -->
+    <!-- 文件访问权限 -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
     
-    <!-- Camera permission for barcode scanning -->
+    <!-- 相机权限用于扫码 -->
     <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- 网络状态权限 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- 查询所有包的权限 (Android 11+) -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 </manifest>
