@@ -28,6 +28,11 @@ public class FileManagerPlugin extends Plugin {
 
     private static final int REQUEST_PERMISSION_CODE = 1001;
     private static final int REQUEST_MANAGE_STORAGE = 1002;
+    private static final int REQUEST_CREATE_DOCUMENT = 1003;
+    
+    // 临时存储待保存的内容
+    private String pendingContent;
+    private PluginCall pendingCall;
 
     @PluginMethod
     public void requestPermissions(PluginCall call) {
@@ -195,6 +200,85 @@ public class FileManagerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void saveFileWithPicker(PluginCall call) {
+        String filename = call.getString("filename");
+        String content = call.getString("content");
+        
+        if (filename == null || content == null) {
+            call.reject("文件名和内容不能为空");
+            return;
+        }
+
+        try {
+            // 使用 Storage Access Framework (SAF) 让用户选择保存位置
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("text/csv");
+            intent.putExtra(Intent.EXTRA_TITLE, filename);
+            
+            // 保存内容到临时变量，在 onActivityResult 中使用
+            this.pendingContent = content;
+            this.pendingCall = call;
+            
+            getActivity().startActivityForResult(intent, REQUEST_CREATE_DOCUMENT);
+            
+        } catch (Exception e) {
+            call.reject("打开文件选择器失败: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void saveFileDirectly(PluginCall call) {
+        String filename = call.getString("filename");
+        String content = call.getString("content");
+        
+        if (filename == null || content == null) {
+            call.reject("文件名和内容不能为空");
+            return;
+        }
+
+        try {
+            // 直接保存到应用的外部文件目录（不需要权限）
+            File externalFilesDir = getContext().getExternalFilesDir(null);
+            if (externalFilesDir == null) {
+                throw new IOException("外部文件目录不可用");
+            }
+            
+            // 创建快递扫码助手文件夹
+            File appDir = new File(externalFilesDir, "快递扫码助手");
+            if (!appDir.exists()) {
+                if (!appDir.mkdirs()) {
+                    throw new IOException("无法创建应用文件夹");
+                }
+            }
+            
+            File file = new File(appDir, filename);
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                byte[] bytes = content.getBytes("UTF-8");
+                fos.write(bytes);
+                fos.flush();
+                fos.getFD().sync();
+            }
+            
+            // 验证文件创建
+            if (!file.exists() || file.length() == 0) {
+                throw new IOException("文件创建失败");
+            }
+            
+            JSObject result = new JSObject();
+            result.put("success", true);
+            result.put("path", file.getAbsolutePath());
+            result.put("filename", filename);
+            result.put("size", content.getBytes("UTF-8").length);
+            result.put("message", "文件已保存到应用专用目录");
+            call.resolve(result);
+            
+        } catch (Exception e) {
+            call.reject("直接保存失败: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
     public void openAppFolder(PluginCall call) {
         try {
             // 尝试打开下载文件夹中的应用文件夹
@@ -339,6 +423,51 @@ public class FileManagerPlugin extends Plugin {
             }
             
             return file.getAbsolutePath();
+        }
+    }
+
+    // 处理文件选择器的结果
+    @Override
+    protected void handleOnActivityResult(int requestCode, int resultCode, Intent data) {
+        super.handleOnActivityResult(requestCode, resultCode, data);
+        
+        if (requestCode == REQUEST_CREATE_DOCUMENT && pendingCall != null) {
+            if (resultCode == getActivity().RESULT_OK && data != null) {
+                Uri uri = data.getData();
+                if (uri != null) {
+                    try {
+                        // 写入文件到用户选择的位置
+                        ContentResolver resolver = getContext().getContentResolver();
+                        try (OutputStream outputStream = resolver.openOutputStream(uri)) {
+                            if (outputStream == null) {
+                                throw new IOException("无法打开输出流");
+                            }
+                            
+                            byte[] bytes = pendingContent.getBytes("UTF-8");
+                            outputStream.write(bytes);
+                            outputStream.flush();
+                        }
+                        
+                        JSObject result = new JSObject();
+                        result.put("success", true);
+                        result.put("path", uri.toString());
+                        result.put("size", pendingContent.getBytes("UTF-8").length);
+                        result.put("message", "文件已保存到用户选择的位置");
+                        pendingCall.resolve(result);
+                        
+                    } catch (Exception e) {
+                        pendingCall.reject("保存文件失败: " + e.getMessage());
+                    }
+                } else {
+                    pendingCall.reject("未获取到文件位置");
+                }
+            } else {
+                pendingCall.reject("用户取消了文件保存");
+            }
+            
+            // 清理临时数据
+            pendingContent = null;
+            pendingCall = null;
         }
     }
 }

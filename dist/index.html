@@ -199,131 +199,126 @@ document.getElementById('export-btn').onclick = async () => {
     
     console.log('CSV 内容生成完成:', csvContent.substring(0, 100) + '...');
     
-    // 首先尝试原生文件管理
+    // 提供多种保存选项
     if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
       try {
         console.log('使用原生文件管理插件保存文件:', filename);
         
-        // 首先请求权限
-        const permissionResult = await window.Capacitor.Plugins.FileManager.requestPermissions();
-        console.log('权限请求结果:', permissionResult);
+        // 显示保存选项
+        const saveOption = confirm(`📁 选择保存方式：
+
+✅ 确定：让我选择保存位置（推荐）
+❌ 取消：直接保存到应用目录
+
+推荐选择"确定"，您可以自由选择保存到任何文件夹！`);
         
-        // 尝试保存到下载文件夹
-        try {
-          const downloadResult = await window.Capacitor.Plugins.FileManager.saveFileToDownloads({
+        if (saveOption) {
+          // 用户选择文件保存位置
+          console.log('用户选择文件保存位置');
+          
+          const pickerResult = await window.Capacitor.Plugins.FileManager.saveFileWithPicker({
             filename: filename,
             content: csvContent
           });
           
-          console.log('保存到下载文件夹成功:', downloadResult);
+          console.log('文件选择器保存成功:', pickerResult);
           
-          // 原生保存成功
-          alert(`✅ 文件已保存到专用文件夹！
-📁 位置：下载文件夹/快递扫码助手/
+          alert(`✅ 文件保存成功！
 📄 文件名：${filename}
 📊 记录数：${recs.length} 条
-🔧 方式：原生文件管理
+💾 大小：${Math.round(pickerResult.size / 1024 * 100) / 100} KB
+📁 位置：您选择的文件夹
 
-📂 查找文件：
-• 文件管理器会自动打开应用文件夹
-• 或手动导航到"下载"→"快递扫码助手"
-• 所有导出文件都在这个文件夹中
-
-💡 完整路径：
-${downloadResult.path || '下载/快递扫码助手/' + filename}`);
+🎉 文件已保存到您指定的位置！
+您可以在文件管理器中找到该文件。`);
           
-          // 打开应用专用文件夹
-          try {
-            await window.Capacitor.Plugins.FileManager.openAppFolder();
-          } catch (e) {
-            console.log('打开应用文件夹失败，尝试打开通用文件管理器:', e);
-            try {
-              await window.Capacitor.Plugins.FileManager.openFileManager();
-            } catch (e2) {
-              console.log('打开文件管理器失败:', e2);
-            }
-          }
           return;
           
-        } catch (downloadError) {
-          console.log('保存到下载文件夹失败，尝试文档文件夹:', downloadError);
+        } else {
+          // 直接保存到应用目录
+          console.log('直接保存到应用目录');
           
-          // 如果下载文件夹失败，尝试文档文件夹
-          const docResult = await window.Capacitor.Plugins.FileManager.saveFileToDocuments({
+          const directResult = await window.Capacitor.Plugins.FileManager.saveFileDirectly({
             filename: filename,
             content: csvContent
           });
           
-          console.log('保存到文档文件夹成功:', docResult);
+          console.log('直接保存成功:', directResult);
           
-          alert(`✅ 文件已保存到专用文件夹！
-📁 位置：文档文件夹/快递扫码助手/
+          alert(`✅ 文件已保存到应用目录！
+📁 位置：应用专用文件夹/快递扫码助手/
 📄 文件名：${filename}
 📊 记录数：${recs.length} 条
-🔧 方式：原生文件管理
+💾 大小：${Math.round(directResult.size / 1024 * 100) / 100} KB
+🔧 方式：应用直接保存
 
 📂 查找文件：
-• 文件管理器会自动打开应用文件夹
-• 或手动导航到"文档"→"快递扫码助手"
-• 所有导出文件都在这个文件夹中
+• 使用文件管理器搜索"快递扫码助手"
+• 或在 Android/data/com.expressscanner.app/files/ 目录下
 
 💡 完整路径：
-${docResult.path || '文档/快递扫码助手/' + filename}`);
+${directResult.path}`);
           
-          // 打开应用专用文件夹
-          try {
-            await window.Capacitor.Plugins.FileManager.openAppFolder();
-          } catch (e) {
-            console.log('打开应用文件夹失败:', e);
-          }
           return;
         }
         
       } catch (error) {
-        console.error('原生文件管理插件失败:', error);
+        console.error('文件保存失败:', error);
+        
+        // 如果用户取消了文件选择，不显示错误
+        if (error.message && error.message.includes('用户取消')) {
+          console.log('用户取消了文件保存');
+          return;
+        }
+        
+        // 尝试直接保存作为备选方案
+        try {
+          console.log('尝试直接保存作为备选方案');
+          
+          const fallbackResult = await window.Capacitor.Plugins.FileManager.saveFileDirectly({
+            filename: filename,
+            content: csvContent
+          });
+          
+          alert(`✅ 文件已保存（备选方案）！
+📁 位置：应用专用目录
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条
+💾 大小：${Math.round(fallbackResult.size / 1024 * 100) / 100} KB
+
+💡 文件路径：${fallbackResult.path}`);
+          
+          return;
+          
+        } catch (fallbackError) {
+          console.error('备选保存方案也失败:', fallbackError);
+          throw new Error('所有保存方案都失败了: ' + fallbackError.message);
+        }
       }
     }
     
-    // 回退到浏览器下载
-    console.log('使用浏览器下载方式');
-    
-    const BOM = '\uFEFF';
-    const csvWithBOM = BOM + csvContent;
-    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    
-    document.body.appendChild(link);
-    link.click();
-    
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 1000);
-    
-    alert(`✅ 文件已通过浏览器下载！
-📁 位置：浏览器下载目录
-📄 文件名：${filename}
-📊 记录数：${recs.length} 条
-🔧 方式：浏览器下载
+    // 如果原生插件不可用，显示错误信息
+    alert(`❌ 原生文件管理不可用
 
-📂 查找文件：
-• 文件管理器 → 下载文件夹
-• 或搜索：${filename}
-• 或按时间查看最新文件`);
+🔧 可能的原因：
+1. 应用未安装为 APK（在浏览器中运行）
+2. 文件管理插件未正确加载
+3. 设备不支持原生文件操作
+
+💡 解决方案：
+• 请使用 APK 版本的应用
+• 确保已授予存储权限
+• 重启应用后重试`);
     
   } catch (error) {
     console.error('导出失败:', error);
     alert(`❌ 导出失败：${error.message}
 
 🔧 请尝试：
-1. 允许应用的存储权限
-2. 刷新页面后重试
-3. 检查存储空间是否充足
-4. 双击标题查看调试信息`);
+1. 确保使用 APK 版本应用
+2. 允许应用的存储权限
+3. 重启应用后重试
+4. 检查存储空间是否充足`);
   }
 };
 
@@ -347,135 +342,116 @@ document.getElementById('export-csv-btn').onclick = async () => {
     
     console.log('完整CSV内容生成完成:', csvContent.substring(0, 100) + '...');
     
-    // 首先尝试原生文件管理
+    // 提供多种保存选项
     if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
       try {
-        console.log('使用原生文件管理插件保存文件:', filename);
+        console.log('使用原生文件管理插件保存完整CSV:', filename);
         
-        // 请求权限
-        const permissionResult = await window.Capacitor.Plugins.FileManager.requestPermissions();
-        console.log('权限请求结果:', permissionResult);
+        // 显示保存选项
+        const saveOption = confirm(`📁 选择保存方式（完整版CSV）：
+
+✅ 确定：让我选择保存位置（推荐）
+❌ 取消：直接保存到应用目录
+
+完整版包含：时间、快递类型、原始条码、处理后条码`);
         
-        // 尝试保存到下载文件夹
-        try {
-          const downloadResult = await window.Capacitor.Plugins.FileManager.saveFileToDownloads({
+        if (saveOption) {
+          // 用户选择文件保存位置
+          const pickerResult = await window.Capacitor.Plugins.FileManager.saveFileWithPicker({
             filename: filename,
             content: csvContent
           });
           
-          console.log('保存到下载文件夹成功:', downloadResult);
-          
-          alert(`✅ 完整数据已保存到专用文件夹！
-📁 位置：下载文件夹/快递扫码助手/
+          alert(`✅ 完整数据保存成功！
 📄 文件名：${filename}
 📊 记录数：${recs.length} 条（包含原始条码）
-🔧 方式：原生文件管理
-
-📂 查找文件：
-• 文件管理器会自动打开应用文件夹
-• 或手动导航到"下载"→"快递扫码助手"
-• 所有导出文件都在这个文件夹中
+💾 大小：${Math.round(pickerResult.size / 1024 * 100) / 100} KB
+📁 位置：您选择的文件夹
 
 💡 此版本包含：
 • 扫描时间
-• 快递类型
+• 快递类型  
 • 原始条码
-• 处理后条码`);
+• 处理后条码
+
+🎉 文件已保存到您指定的位置！`);
           
-          // 打开应用专用文件夹
-          try {
-            await window.Capacitor.Plugins.FileManager.openAppFolder();
-          } catch (e) {
-            console.log('打开应用文件夹失败:', e);
-          }
           return;
           
-        } catch (downloadError) {
-          console.log('保存到下载文件夹失败，尝试文档文件夹:', downloadError);
-          
-          // 如果下载文件夹失败，尝试文档文件夹
-          const docResult = await window.Capacitor.Plugins.FileManager.saveFileToDocuments({
+        } else {
+          // 直接保存到应用目录
+          const directResult = await window.Capacitor.Plugins.FileManager.saveFileDirectly({
             filename: filename,
             content: csvContent
           });
           
-          console.log('保存到文档文件夹成功:', docResult);
-          
-          alert(`✅ 完整数据已保存到专用文件夹！
-📁 位置：文档文件夹/快递扫码助手/
+          alert(`✅ 完整数据已保存到应用目录！
+📁 位置：应用专用文件夹/快递扫码助手/
 📄 文件名：${filename}
 📊 记录数：${recs.length} 条（包含原始条码）
-🔧 方式：原生文件管理
-
-📂 查找文件：
-• 文件管理器会自动打开应用文件夹
-• 或手动导航到"文档"→"快递扫码助手"
-• 所有导出文件都在这个文件夹中
+💾 大小：${Math.round(directResult.size / 1024 * 100) / 100} KB
 
 💡 此版本包含：
-• 扫描时间
-• 快递类型
-• 原始条码
-• 处理后条码`);
+• 扫描时间 • 快递类型
+• 原始条码 • 处理后条码
+
+📂 文件路径：${directResult.path}`);
           
-          try {
-            await window.Capacitor.Plugins.FileManager.openAppFolder();
-          } catch (e) {
-            console.log('打开应用文件夹失败:', e);
-          }
           return;
         }
         
       } catch (error) {
-        console.error('原生文件管理插件失败:', error);
+        console.error('完整CSV保存失败:', error);
+        
+        if (error.message && error.message.includes('用户取消')) {
+          return;
+        }
+        
+        // 备选方案
+        try {
+          const fallbackResult = await window.Capacitor.Plugins.FileManager.saveFileDirectly({
+            filename: filename,
+            content: csvContent
+          });
+          
+          alert(`✅ 完整数据已保存（备选方案）！
+📁 位置：应用专用目录
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条（包含原始条码）
+💾 大小：${Math.round(fallbackResult.size / 1024 * 100) / 100} KB
+
+💡 文件路径：${fallbackResult.path}`);
+          
+          return;
+          
+        } catch (fallbackError) {
+          throw new Error('所有保存方案都失败了: ' + fallbackError.message);
+        }
       }
     }
     
-    // 回退到浏览器下载
-    console.log('使用浏览器下载方式');
-    
-    const BOM = '\uFEFF';
-    const csvWithBOM = BOM + csvContent;
-    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    
-    document.body.appendChild(link);
-    link.click();
-    
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 1000);
-    
-    alert(`✅ 完整数据已通过浏览器下载！
-📁 位置：浏览器下载目录
-📄 文件名：${filename}
-📊 记录数：${recs.length} 条（包含原始条码）
-🔧 方式：浏览器下载
+    // 如果原生插件不可用，显示错误信息
+    alert(`❌ 原生文件管理不可用
 
-📂 查找文件：
-• 文件管理器 → 下载文件夹
-• 或搜索：${filename}
-• 或按时间查看最新文件
+🔧 可能的原因：
+1. 应用未安装为 APK（在浏览器中运行）
+2. 文件管理插件未正确加载
+3. 设备不支持原生文件操作
 
-💡 此版本包含：
-• 扫描时间
-• 快递类型
-• 原始条码
-• 处理后条码`);
+💡 解决方案：
+• 请使用 APK 版本的应用
+• 确保已授予存储权限
+• 重启应用后重试`);
     
   } catch (error) {
     console.error('CSV导出失败:', error);
     alert(`❌ CSV导出失败：${error.message}
 
 🔧 请尝试：
-1. 允许应用的存储权限
-2. 刷新页面后重试
-3. 检查存储空间是否充足`);
+1. 确保使用 APK 版本应用
+2. 允许应用的存储权限
+3. 重启应用后重试
+4. 检查存储空间是否充足`);
   }
 };
 

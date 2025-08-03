@@ -40,23 +40,32 @@
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     
-    <!-- 存储权限 -->
+    <!-- 完整存储权限 -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     
-    <!-- Android 11+ (API 30+) 管理外部存储权限 -->
+    <!-- Android 11+ 完整文件管理权限 -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
     
-    <!-- 文件访问权限 -->
+    <!-- 文件访问和媒体权限 -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" />
+    <uses-permission android:name="android.permission.WRITE_MEDIA_STORAGE" />
+    <uses-permission android:name="android.permission.READ_MEDIA_STORAGE" />
     
     <!-- 相机权限用于扫码 -->
     <uses-permission android:name="android.permission.CAMERA" />
     
-    <!-- 网络状态权限 -->
+    <!-- 网络权限 -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     
-    <!-- 查询所有包的权限 (Android 11+) -->
+    <!-- 系统权限 -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    
+    <!-- 文件选择器权限 -->
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 </manifest>
