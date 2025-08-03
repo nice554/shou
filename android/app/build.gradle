@@ -36,9 +36,9 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     
-    // ZXing 扫码库
-    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
-    implementation 'com.google.zxing:core:3.5.1'
+    // ZXing 扫码库 - 暂时移除以避免崩溃
+    // implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    // implementation 'com.google.zxing:core:3.5.1'
     
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
