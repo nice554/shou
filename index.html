@@ -179,26 +179,304 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
 
 document.getElementById('search-box').addEventListener('input', () => renderTable());
 
-document.getElementById('export-btn').onclick = () => {
-  const data = recs.map(r => ({ 时间: r.time, 快递: r.mode, 处理后: r.out }));
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "记录");
-  const now = new Date();
-const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
-const firstTracking = recs[0]?.out || 'TrackingNumber';
-XLSX.writeFile(wb, `${mmddyyyy}_TrackingNumber.xlsx`);
+document.getElementById('export-btn').onclick = async () => {
+  try {
+    // 检查是否有数据
+    if (recs.length === 0) {
+      alert("❌ 没有数据可以导出，请先扫描一些条码。");
+      return;
+    }
+
+    console.log('开始导出，当前记录数:', recs.length);
+
+    // 生成文件名
+    const now = new Date();
+    const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
+    const filename = `${mmddyyyy}_TrackingNumber.csv`;
+    
+    // 生成 CSV 内容
+    const csvContent = "时间,快递,处理后\n" + recs.map(r => `"${r.time}","${r.mode}","${r.out}"`).join("\n");
+    
+    console.log('CSV 内容生成完成:', csvContent.substring(0, 100) + '...');
+    
+    // 首先尝试原生文件管理
+    if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
+      try {
+        console.log('使用原生文件管理插件保存文件:', filename);
+        
+        // 首先请求权限
+        const permissionResult = await window.Capacitor.Plugins.FileManager.requestPermissions();
+        console.log('权限请求结果:', permissionResult);
+        
+        // 尝试保存到下载文件夹
+        try {
+          const downloadResult = await window.Capacitor.Plugins.FileManager.saveFileToDownloads({
+            filename: filename,
+            content: csvContent
+          });
+          
+          console.log('保存到下载文件夹成功:', downloadResult);
+          
+          // 原生保存成功
+          alert(`✅ 文件已保存到专用文件夹！
+📁 位置：下载文件夹/快递扫码助手/
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条
+🔧 方式：原生文件管理
+
+📂 查找文件：
+• 文件管理器会自动打开应用文件夹
+• 或手动导航到"下载"→"快递扫码助手"
+• 所有导出文件都在这个文件夹中
+
+💡 完整路径：
+${downloadResult.path || '下载/快递扫码助手/' + filename}`);
+          
+          // 打开应用专用文件夹
+          try {
+            await window.Capacitor.Plugins.FileManager.openAppFolder();
+          } catch (e) {
+            console.log('打开应用文件夹失败，尝试打开通用文件管理器:', e);
+            try {
+              await window.Capacitor.Plugins.FileManager.openFileManager();
+            } catch (e2) {
+              console.log('打开文件管理器失败:', e2);
+            }
+          }
+          return;
+          
+        } catch (downloadError) {
+          console.log('保存到下载文件夹失败，尝试文档文件夹:', downloadError);
+          
+          // 如果下载文件夹失败，尝试文档文件夹
+          const docResult = await window.Capacitor.Plugins.FileManager.saveFileToDocuments({
+            filename: filename,
+            content: csvContent
+          });
+          
+          console.log('保存到文档文件夹成功:', docResult);
+          
+          alert(`✅ 文件已保存到专用文件夹！
+📁 位置：文档文件夹/快递扫码助手/
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条
+🔧 方式：原生文件管理
+
+📂 查找文件：
+• 文件管理器会自动打开应用文件夹
+• 或手动导航到"文档"→"快递扫码助手"
+• 所有导出文件都在这个文件夹中
+
+💡 完整路径：
+${docResult.path || '文档/快递扫码助手/' + filename}`);
+          
+          // 打开应用专用文件夹
+          try {
+            await window.Capacitor.Plugins.FileManager.openAppFolder();
+          } catch (e) {
+            console.log('打开应用文件夹失败:', e);
+          }
+          return;
+        }
+        
+      } catch (error) {
+        console.error('原生文件管理插件失败:', error);
+      }
+    }
+    
+    // 回退到浏览器下载
+    console.log('使用浏览器下载方式');
+    
+    const BOM = '\uFEFF';
+    const csvWithBOM = BOM + csvContent;
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1000);
+    
+    alert(`✅ 文件已通过浏览器下载！
+📁 位置：浏览器下载目录
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条
+🔧 方式：浏览器下载
+
+📂 查找文件：
+• 文件管理器 → 下载文件夹
+• 或搜索：${filename}
+• 或按时间查看最新文件`);
+    
+  } catch (error) {
+    console.error('导出失败:', error);
+    alert(`❌ 导出失败：${error.message}
+
+🔧 请尝试：
+1. 允许应用的存储权限
+2. 刷新页面后重试
+3. 检查存储空间是否充足
+4. 双击标题查看调试信息`);
+  }
 };
 
-document.getElementById('export-csv-btn').onclick = () => {
-  const csv = recs.map(r => `${r.time},${r.mode},${r.orig},${r.out}`).join("\n");
-  const blob = new Blob(["时间,快递,原始,处理后\n" + csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  const now = new Date();
-const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
-link.download = `${mmddyyyy}_TrackingNumber.csv`;
-  link.click();
+document.getElementById('export-csv-btn').onclick = async () => {
+  try {
+    // 检查是否有数据
+    if (recs.length === 0) {
+      alert("❌ 没有数据可以导出，请先扫描一些条码。");
+      return;
+    }
+
+    console.log('开始导出完整CSV，当前记录数:', recs.length);
+
+    // 生成文件名
+    const now = new Date();
+    const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
+    const filename = `${mmddyyyy}_TrackingNumber_Full.csv`;
+    
+    // 生成 CSV 内容（包含原始数据）
+    const csvContent = "时间,快递,原始,处理后\n" + recs.map(r => `"${r.time}","${r.mode}","${r.orig}","${r.out}"`).join("\n");
+    
+    console.log('完整CSV内容生成完成:', csvContent.substring(0, 100) + '...');
+    
+    // 首先尝试原生文件管理
+    if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
+      try {
+        console.log('使用原生文件管理插件保存文件:', filename);
+        
+        // 请求权限
+        const permissionResult = await window.Capacitor.Plugins.FileManager.requestPermissions();
+        console.log('权限请求结果:', permissionResult);
+        
+        // 尝试保存到下载文件夹
+        try {
+          const downloadResult = await window.Capacitor.Plugins.FileManager.saveFileToDownloads({
+            filename: filename,
+            content: csvContent
+          });
+          
+          console.log('保存到下载文件夹成功:', downloadResult);
+          
+          alert(`✅ 完整数据已保存到专用文件夹！
+📁 位置：下载文件夹/快递扫码助手/
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条（包含原始条码）
+🔧 方式：原生文件管理
+
+📂 查找文件：
+• 文件管理器会自动打开应用文件夹
+• 或手动导航到"下载"→"快递扫码助手"
+• 所有导出文件都在这个文件夹中
+
+💡 此版本包含：
+• 扫描时间
+• 快递类型
+• 原始条码
+• 处理后条码`);
+          
+          // 打开应用专用文件夹
+          try {
+            await window.Capacitor.Plugins.FileManager.openAppFolder();
+          } catch (e) {
+            console.log('打开应用文件夹失败:', e);
+          }
+          return;
+          
+        } catch (downloadError) {
+          console.log('保存到下载文件夹失败，尝试文档文件夹:', downloadError);
+          
+          // 如果下载文件夹失败，尝试文档文件夹
+          const docResult = await window.Capacitor.Plugins.FileManager.saveFileToDocuments({
+            filename: filename,
+            content: csvContent
+          });
+          
+          console.log('保存到文档文件夹成功:', docResult);
+          
+          alert(`✅ 完整数据已保存到专用文件夹！
+📁 位置：文档文件夹/快递扫码助手/
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条（包含原始条码）
+🔧 方式：原生文件管理
+
+📂 查找文件：
+• 文件管理器会自动打开应用文件夹
+• 或手动导航到"文档"→"快递扫码助手"
+• 所有导出文件都在这个文件夹中
+
+💡 此版本包含：
+• 扫描时间
+• 快递类型
+• 原始条码
+• 处理后条码`);
+          
+          try {
+            await window.Capacitor.Plugins.FileManager.openAppFolder();
+          } catch (e) {
+            console.log('打开应用文件夹失败:', e);
+          }
+          return;
+        }
+        
+      } catch (error) {
+        console.error('原生文件管理插件失败:', error);
+      }
+    }
+    
+    // 回退到浏览器下载
+    console.log('使用浏览器下载方式');
+    
+    const BOM = '\uFEFF';
+    const csvWithBOM = BOM + csvContent;
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1000);
+    
+    alert(`✅ 完整数据已通过浏览器下载！
+📁 位置：浏览器下载目录
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条（包含原始条码）
+🔧 方式：浏览器下载
+
+📂 查找文件：
+• 文件管理器 → 下载文件夹
+• 或搜索：${filename}
+• 或按时间查看最新文件
+
+💡 此版本包含：
+• 扫描时间
+• 快递类型
+• 原始条码
+• 处理后条码`);
+    
+  } catch (error) {
+    console.error('CSV导出失败:', error);
+    alert(`❌ CSV导出失败：${error.message}
+
+🔧 请尝试：
+1. 允许应用的存储权限
+2. 刷新页面后重试
+3. 检查存储空间是否充足`);
+  }
 };
 
 document.getElementById('clear-btn').onclick = () => { recs = []; renderTable(); };

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>导出功能测试</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        button { 
+            padding: 15px 25px; 
+            margin: 10px 5px; 
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #2196F3;
+            color: white;
+        }
+        button:hover { background: #1976D2; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .info { color: blue; }
+        #log { 
+            background: #f5f5f5; 
+            padding: 15px; 
+            margin: 20px 0;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+        }
+        #testData {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 快递扫码助手 - 导出功能测试</h1>
+    
+    <div id="testData">
+        <h3>📊 测试数据</h3>
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>时间</th>
+                    <th>快递</th>
+                    <th>原始</th>
+                    <th>处理后</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- 测试数据将在这里显示 -->
+            </tbody>
+        </table>
+    </div>
+    
+    <div>
+        <button onclick="generateTestData()">📝 生成测试数据</button>
+        <button onclick="testBrowserDownload()">🌐 测试浏览器下载</button>
+        <button onclick="testCapacitorExport()">📱 测试 Capacitor 导出</button>
+        <button onclick="testEnvironment()">🔍 检测环境</button>
+        <button onclick="clearLog()">🧹 清除日志</button>
+    </div>
+    
+    <div id="log"></div>
+
+    <script>
+        let testRecords = [];
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function generateTestData() {
+            testRecords = [
+                { time: '14:30:25', mode: 'UPS', orig: '1Z999AA1234567890', out: '1Z999AA1234567890' },
+                { time: '14:31:10', mode: 'DHL', orig: '1234567890', out: '1234567890' },
+                { time: '14:32:05', mode: 'FedEx', orig: '9876543210', out: '9876543210' },
+                { time: '14:33:15', mode: '顺丰', orig: 'SF1234567890123', out: 'SF1234567890123' },
+                { time: '14:34:20', mode: '圆通', orig: 'YT9876543210987', out: 'YT9876543210987' }
+            ];
+            
+            updateTable();
+            log(`✅ 已生成 ${testRecords.length} 条测试数据`, 'success');
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            testRecords.forEach(record => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = record.time;
+                row.insertCell(1).textContent = record.mode;
+                row.insertCell(2).textContent = record.orig;
+                row.insertCell(3).textContent = record.out;
+            });
+        }
+
+        function testEnvironment() {
+            log('🔍 开始环境检测...');
+            
+            // 基本环境信息
+            log(`📱 用户代理: ${navigator.userAgent}`);
+            log(`🌐 平台: ${navigator.platform}`);
+            log(`📊 屏幕尺寸: ${screen.width}x${screen.height}`);
+            
+            // 检测 Capacitor
+            if (window.Capacitor) {
+                log('✅ Capacitor 环境可用', 'success');
+                log(`📦 Capacitor 平台: ${window.Capacitor.getPlatform()}`);
+                log(`🏠 Capacitor 原生: ${window.Capacitor.isNativePlatform()}`);
+                
+                if (window.Capacitor.Plugins) {
+                    log('✅ Capacitor Plugins 可用', 'success');
+                    
+                    if (window.Capacitor.Plugins.FileManager) {
+                        log('✅ FileManager 插件已加载', 'success');
+                    } else {
+                        log('❌ FileManager 插件未找到', 'error');
+                    }
+                    
+                    if (window.Capacitor.Plugins.Filesystem) {
+                        log('✅ Filesystem 插件已加载', 'success');
+                    } else {
+                        log('⚠️ Filesystem 插件未找到', 'info');
+                    }
+                } else {
+                    log('❌ Capacitor Plugins 不可用', 'error');
+                }
+            } else {
+                log('❌ Capacitor 环境不可用', 'error');
+                log('ℹ️ 这是正常的，因为在浏览器中运行', 'info');
+            }
+            
+            // 检测 Web API
+            if (typeof Blob !== 'undefined') {
+                log('✅ Blob API 支持', 'success');
+            } else {
+                log('❌ Blob API 不支持', 'error');
+            }
+            
+            if (typeof URL !== 'undefined' && URL.createObjectURL) {
+                log('✅ URL.createObjectURL 支持', 'success');
+            } else {
+                log('❌ URL.createObjectURL 不支持', 'error');
+            }
+            
+            if (typeof FileReader !== 'undefined') {
+                log('✅ FileReader API 支持', 'success');
+            } else {
+                log('❌ FileReader API 不支持', 'error');
+            }
+        }
+
+        function testBrowserDownload() {
+            if (testRecords.length === 0) {
+                log('❌ 请先生成测试数据', 'error');
+                return;
+            }
+
+            try {
+                log('🌐 开始测试浏览器下载...');
+                
+                // 生成文件名
+                const now = new Date();
+                const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
+                const filename = `${mmddyyyy}_TrackingNumber_Test.csv`;
+                
+                // 生成 CSV 内容
+                const csvContent = "时间,快递,处理后\n" + testRecords.map(r => `"${r.time}","${r.mode}","${r.out}"`).join("\n");
+                
+                log(`📄 生成文件: ${filename}`);
+                log(`📊 内容预览: ${csvContent.substring(0, 100)}...`);
+                
+                // 添加 BOM 以确保 UTF-8 编码正确
+                const BOM = '\uFEFF';
+                const csvWithBOM = BOM + csvContent;
+                
+                // 创建 Blob
+                const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+                log(`📦 Blob 创建成功, 大小: ${blob.size} 字节`, 'success');
+                
+                // 创建下载链接
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename;
+                link.style.display = 'none';
+                
+                // 添加到 DOM 并触发下载
+                document.body.appendChild(link);
+                link.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    log('🗑️ 下载链接已清理', 'info');
+                }, 1000);
+                
+                log('✅ 浏览器下载测试完成！请检查下载文件夹', 'success');
+                
+            } catch (error) {
+                log(`❌ 浏览器下载测试失败: ${error.message}`, 'error');
+                console.error('浏览器下载错误:', error);
+            }
+        }
+
+        async function testCapacitorExport() {
+            if (testRecords.length === 0) {
+                log('❌ 请先生成测试数据', 'error');
+                return;
+            }
+
+            if (!window.Capacitor || !window.Capacitor.Plugins.FileManager) {
+                log('❌ Capacitor FileManager 插件不可用，回退到浏览器下载', 'error');
+                testBrowserDownload();
+                return;
+            }
+
+            try {
+                log('📱 开始测试 Capacitor 导出...');
+                
+                // 生成文件名和内容
+                const now = new Date();
+                const mmddyyyy = `${(now.getMonth()+1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getFullYear()}`;
+                const filename = `${mmddyyyy}_TrackingNumber_Capacitor.csv`;
+                const csvContent = "时间,快递,处理后\n" + testRecords.map(r => `"${r.time}","${r.mode}","${r.out}"`).join("\n");
+                
+                log(`📄 准备保存文件: ${filename}`);
+                
+                // 请求权限
+                log('🔐 请求存储权限...');
+                const permissionResult = await window.Capacitor.Plugins.FileManager.requestPermissions();
+                log(`✅ 权限请求结果: ${JSON.stringify(permissionResult)}`, 'success');
+                
+                // 尝试保存到下载文件夹
+                try {
+                    log('📥 尝试保存到下载文件夹...');
+                    const downloadResult = await window.Capacitor.Plugins.FileManager.saveFileToDownloads({
+                        filename: filename,
+                        content: csvContent
+                    });
+                    
+                    log(`✅ 保存到下载文件夹成功!`, 'success');
+                    log(`📁 路径: ${downloadResult.path}`, 'success');
+                    
+                    // 尝试打开应用文件夹
+                    try {
+                        log('📂 尝试打开应用文件夹...');
+                        const folderResult = await window.Capacitor.Plugins.FileManager.openAppFolder();
+                        log(`✅ 应用文件夹打开成功: ${JSON.stringify(folderResult)}`, 'success');
+                    } catch (folderError) {
+                        log(`⚠️ 打开应用文件夹失败: ${folderError.message}`, 'info');
+                    }
+                    
+                    return;
+                    
+                } catch (downloadError) {
+                    log(`⚠️ 下载文件夹保存失败: ${downloadError.message}`, 'info');
+                    
+                    // 尝试文档文件夹
+                    log('📄 尝试保存到文档文件夹...');
+                    const docResult = await window.Capacitor.Plugins.FileManager.saveFileToDocuments({
+                        filename: filename,
+                        content: csvContent
+                    });
+                    
+                    log(`✅ 保存到文档文件夹成功!`, 'success');
+                    log(`📁 路径: ${docResult.path}`, 'success');
+                    
+                    // 尝试打开应用文件夹
+                    try {
+                        const folderResult = await window.Capacitor.Plugins.FileManager.openAppFolder();
+                        log(`✅ 应用文件夹打开成功: ${JSON.stringify(folderResult)}`, 'success');
+                    } catch (folderError) {
+                        log(`⚠️ 打开应用文件夹失败: ${folderError.message}`, 'info');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Capacitor 导出测试失败: ${error.message}`, 'error');
+                console.error('Capacitor 导出错误:', error);
+                
+                // 回退到浏览器下载
+                log('🔄 回退到浏览器下载...', 'info');
+                testBrowserDownload();
+            }
+        }
+
+        // 页面加载时自动检测环境并生成测试数据
+        window.onload = function() {
+            log('🚀 导出功能测试页面已加载');
+            setTimeout(() => {
+                testEnvironment();
+                generateTestData();
+            }, 500);
+        };
+    </script>
+</body>
+</html>

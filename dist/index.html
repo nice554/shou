@@ -83,38 +83,6 @@ document.addEventListener('touchmove', function (e) {
 </audio>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script>
-// Capacitor 文件导出功能
-async function exportFileWithCapacitor(content, filename, mimeType) {
-  if (window.Capacitor && window.Capacitor.Plugins.Filesystem) {
-    try {
-      const { Filesystem, Directory } = window.Capacitor.Plugins;
-      
-      // 将内容写入文件
-      await Filesystem.writeFile({
-        path: filename,
-        data: content,
-        directory: Directory.Documents,
-        encoding: 'utf8'
-      });
-      
-      // 获取文件URI
-      const fileUri = await Filesystem.getUri({
-        directory: Directory.Documents,
-        path: filename
-      });
-      
-      alert(`✅ 文件已保存到文档目录：${filename}\n您可以在文件管理器的文档文件夹中找到该文件。`);
-      
-      return true;
-    } catch (error) {
-      console.error('Capacitor 文件导出失败:', error);
-      return false;
-    }
-  }
-  return false;
-}
-</script>
-<script>
 let mode = 'UPS', recs = [], page = 1, perPage = 10;
 
 window.onload = () => document.getElementById('barcode-input').focus();
@@ -210,114 +178,6 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
 });
 
 document.getElementById('search-box').addEventListener('input', () => renderTable());
-
-// 使用原生文件管理插件保存文件
-async function saveFileWithNativePlugin(content, filename) {
-  if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
-    try {
-      console.log('使用原生文件管理插件保存文件:', filename);
-      
-      // 首先请求权限
-      const permissionResult = await window.Capacitor.Plugins.FileManager.requestPermissions();
-      console.log('权限请求结果:', permissionResult);
-      
-      // 尝试保存到下载文件夹
-      try {
-        const downloadResult = await window.Capacitor.Plugins.FileManager.saveFileToDownloads({
-          filename: filename,
-          content: content
-        });
-        
-        console.log('保存到下载文件夹成功:', downloadResult);
-        return {
-          success: true,
-          location: '下载文件夹',
-          path: downloadResult.path,
-          method: '原生文件管理'
-        };
-        
-      } catch (downloadError) {
-        console.log('保存到下载文件夹失败，尝试文档文件夹:', downloadError);
-        
-        // 如果下载文件夹失败，尝试文档文件夹
-        const docResult = await window.Capacitor.Plugins.FileManager.saveFileToDocuments({
-          filename: filename,
-          content: content
-        });
-        
-        console.log('保存到文档文件夹成功:', docResult);
-        return {
-          success: true,
-          location: '文档文件夹',
-          path: docResult.path,
-          method: '原生文件管理'
-        };
-      }
-      
-    } catch (error) {
-      console.error('原生文件管理插件失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-  
-  return { success: false, error: '原生文件管理插件不可用' };
-}
-
-// 回退到浏览器下载
-function fallbackBrowserDownload(content, filename) {
-  try {
-    console.log('使用浏览器下载方式');
-    
-    // 添加 BOM 以确保 UTF-8 编码正确
-    const BOM = '\uFEFF';
-    const csvWithBOM = BOM + content;
-    
-    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    
-    document.body.appendChild(link);
-    link.click();
-    
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 1000);
-    
-    return { success: true, location: '浏览器下载目录', method: '浏览器下载' };
-    
-  } catch (error) {
-    console.error('浏览器下载失败:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// 回退到浏览器下载
-function fallbackBrowserDownload(content, filename) {
-  try {
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.display = 'none';
-    
-    document.body.appendChild(link);
-    link.click();
-    
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
-    
-    return { success: true, location: '浏览器下载目录' };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
 
 document.getElementById('export-btn').onclick = async () => {
   try {
@@ -467,16 +327,7 @@ ${docResult.path || '文档/快递扫码助手/' + filename}`);
   }
 };
 
-// 回退到浏览器下载功能
-function fallbackToDownload(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType + ';charset=utf-8;' });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = filename;
-  link.click();
-}
-
-document.getElementById('export-csv-btn').onclick = () => {
+document.getElementById('export-csv-btn').onclick = async () => {
   try {
     // 检查是否有数据
     if (recs.length === 0) {
@@ -496,19 +347,118 @@ document.getElementById('export-csv-btn').onclick = () => {
     
     console.log('完整CSV内容生成完成:', csvContent.substring(0, 100) + '...');
     
-    // 强制下载
-    const result = forceDownload(csvContent, filename);
-    
-    if (result.success) {
-      // 显示成功消息
-      setTimeout(() => {
-        alert(`✅ 完整数据导出完成！
+    // 首先尝试原生文件管理
+    if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
+      try {
+        console.log('使用原生文件管理插件保存文件:', filename);
+        
+        // 请求权限
+        const permissionResult = await window.Capacitor.Plugins.FileManager.requestPermissions();
+        console.log('权限请求结果:', permissionResult);
+        
+        // 尝试保存到下载文件夹
+        try {
+          const downloadResult = await window.Capacitor.Plugins.FileManager.saveFileToDownloads({
+            filename: filename,
+            content: csvContent
+          });
+          
+          console.log('保存到下载文件夹成功:', downloadResult);
+          
+          alert(`✅ 完整数据已保存到专用文件夹！
+📁 位置：下载文件夹/快递扫码助手/
 📄 文件名：${filename}
 📊 记录数：${recs.length} 条（包含原始条码）
-🔧 方式：${result.method}
+🔧 方式：原生文件管理
 
 📂 查找文件：
-• Android: 文件管理器 → 下载文件夹
+• 文件管理器会自动打开应用文件夹
+• 或手动导航到"下载"→"快递扫码助手"
+• 所有导出文件都在这个文件夹中
+
+💡 此版本包含：
+• 扫描时间
+• 快递类型
+• 原始条码
+• 处理后条码`);
+          
+          // 打开应用专用文件夹
+          try {
+            await window.Capacitor.Plugins.FileManager.openAppFolder();
+          } catch (e) {
+            console.log('打开应用文件夹失败:', e);
+          }
+          return;
+          
+        } catch (downloadError) {
+          console.log('保存到下载文件夹失败，尝试文档文件夹:', downloadError);
+          
+          // 如果下载文件夹失败，尝试文档文件夹
+          const docResult = await window.Capacitor.Plugins.FileManager.saveFileToDocuments({
+            filename: filename,
+            content: csvContent
+          });
+          
+          console.log('保存到文档文件夹成功:', docResult);
+          
+          alert(`✅ 完整数据已保存到专用文件夹！
+📁 位置：文档文件夹/快递扫码助手/
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条（包含原始条码）
+🔧 方式：原生文件管理
+
+📂 查找文件：
+• 文件管理器会自动打开应用文件夹
+• 或手动导航到"文档"→"快递扫码助手"
+• 所有导出文件都在这个文件夹中
+
+💡 此版本包含：
+• 扫描时间
+• 快递类型
+• 原始条码
+• 处理后条码`);
+          
+          try {
+            await window.Capacitor.Plugins.FileManager.openAppFolder();
+          } catch (e) {
+            console.log('打开应用文件夹失败:', e);
+          }
+          return;
+        }
+        
+      } catch (error) {
+        console.error('原生文件管理插件失败:', error);
+      }
+    }
+    
+    // 回退到浏览器下载
+    console.log('使用浏览器下载方式');
+    
+    const BOM = '\uFEFF';
+    const csvWithBOM = BOM + csvContent;
+    const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 1000);
+    
+    alert(`✅ 完整数据已通过浏览器下载！
+📁 位置：浏览器下载目录
+📄 文件名：${filename}
+📊 记录数：${recs.length} 条（包含原始条码）
+🔧 方式：浏览器下载
+
+📂 查找文件：
+• 文件管理器 → 下载文件夹
 • 或搜索：${filename}
 • 或按时间查看最新文件
 
@@ -517,86 +467,19 @@ document.getElementById('export-csv-btn').onclick = () => {
 • 快递类型
 • 原始条码
 • 处理后条码`);
-      }, 500);
-    } else {
-      throw new Error(result.error);
-    }
     
   } catch (error) {
     console.error('CSV导出失败:', error);
     alert(`❌ CSV导出失败：${error.message}
 
 🔧 请尝试：
-1. 刷新页面后重试
-2. 检查浏览器下载权限
-3. 确保存储空间充足`);
+1. 允许应用的存储权限
+2. 刷新页面后重试
+3. 检查存储空间是否充足`);
   }
 };
 
 document.getElementById('clear-btn').onclick = () => { recs = []; renderTable(); };
-
-// 添加调试信息功能
-function showDebugInfo() {
-  const info = {
-    userAgent: navigator.userAgent,
-    platform: navigator.platform,
-    isCapacitor: !!window.Capacitor,
-    isCordova: !!window.cordova,
-    hasBlob: typeof Blob !== 'undefined',
-    hasURL: typeof URL !== 'undefined',
-    recordsCount: recs.length,
-    sampleRecord: recs[0] || null
-  };
-  
-  console.log('调试信息:', info);
-  alert(`🔧 调试信息：
-浏览器：${navigator.userAgent.substring(0, 50)}...
-平台：${navigator.platform}
-记录数：${recs.length}
-Blob支持：${info.hasBlob ? '✅' : '❌'}
-URL支持：${info.hasURL ? '✅' : '❌'}
-Capacitor：${info.isCapacitor ? '✅' : '❌'}
-
-${recs.length > 0 ? '✅ 有数据可以导出' : '❌ 没有数据，请先扫描条码'}`);
-}
-
-// 双击标题显示调试信息
-document.querySelector('h1').addEventListener('dblclick', showDebugInfo);
-
-// 添加测试导出功能
-function testExport() {
-  console.log('测试导出功能');
-  
-  // 如果没有真实数据，创建测试数据
-  if (recs.length === 0) {
-    recs = [
-      { time: '14:30:25', mode: 'UPS', orig: '1Z999AA1234567890', out: '1Z999AA1234567890' },
-      { time: '14:31:10', mode: 'DHL', orig: '1234567890', out: '1234567890' },
-      { time: '14:32:05', mode: 'FedEx', orig: '9876543210', out: '9876543210' }
-    ];
-    renderTable();
-    alert('已添加测试数据，现在可以测试导出功能了！');
-  }
-  
-  // 直接触发导出
-  document.getElementById('export-btn').click();
-}
-
-// 长按标题3秒添加测试数据
-let pressTimer;
-document.querySelector('h1').addEventListener('mousedown', () => {
-  pressTimer = setTimeout(() => {
-    testExport();
-  }, 3000);
-});
-
-document.querySelector('h1').addEventListener('mouseup', () => {
-  clearTimeout(pressTimer);
-});
-
-document.querySelector('h1').addEventListener('mouseleave', () => {
-  clearTimeout(pressTimer);
-});
 document.getElementById('custom-audio-upload').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
