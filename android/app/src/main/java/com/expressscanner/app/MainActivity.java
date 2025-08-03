@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat;
 import com.google.zxing.integration.android.IntentIntegrator;
 import com.google.zxing.integration.android.IntentResult;
 import android.content.Intent;
+import android.view.KeyEvent;
+import android.view.inputmethod.EditorInfo;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -48,273 +50,351 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
         
-        initViews();
-        setupListeners();
-        requestPermissions();
-        
-        // 初始化列表适配器
-        listAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, displayList);
-        recordsList.setAdapter(listAdapter);
-        
-        updateStats();
+        try {
+            setContentView(R.layout.activity_main);
+            initViews();
+            setupListeners();
+            requestPermissions();
+            updateStats();
+        } catch (Exception e) {
+            Toast.makeText(this, "初始化失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        }
     }
     
     private void initViews() {
-        barcodeInput = findViewById(R.id.barcode_input);
-        scanButton = findViewById(R.id.scan_button);
-        exportButton = findViewById(R.id.export_button);
-        exportCsvButton = findViewById(R.id.export_csv_button);
-        clearButton = findViewById(R.id.clear_button);
-        statsText = findViewById(R.id.stats_text);
-        recordsList = findViewById(R.id.records_list);
-        modeSpinner = findViewById(R.id.mode_spinner);
-        emptyText = findViewById(R.id.empty_text);
-        
-        // 设置快递模式选择器
-        String[] modes = {"UPS", "FedEx", "USPS", "Amazon", "DHL", "顺丰", "圆通", "中通", "申通", "韵达", "通用"};
-        ArrayAdapter<String> modeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, modes);
-        modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        modeSpinner.setAdapter(modeAdapter);
-        
-        // 设置默认选择 UPS
-        modeSpinner.setSelection(0);
+        try {
+            barcodeInput = findViewById(R.id.barcode_input);
+            scanButton = findViewById(R.id.scan_button);
+            exportButton = findViewById(R.id.export_button);
+            exportCsvButton = findViewById(R.id.export_csv_button);
+            clearButton = findViewById(R.id.clear_button);
+            statsText = findViewById(R.id.stats_text);
+            recordsList = findViewById(R.id.records_list);
+            modeSpinner = findViewById(R.id.mode_spinner);
+            emptyText = findViewById(R.id.empty_text);
+            
+            // 设置快递模式选择器
+            String[] modes = {"UPS", "FedEx", "USPS", "Amazon", "DHL", "顺丰", "圆通", "中通", "申通", "韵达", "通用"};
+            ArrayAdapter<String> modeAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, modes);
+            modeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            modeSpinner.setAdapter(modeAdapter);
+            modeSpinner.setSelection(0); // 默认选择 UPS
+            
+            // 初始化列表适配器
+            listAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, displayList);
+            recordsList.setAdapter(listAdapter);
+            
+        } catch (Exception e) {
+            Toast.makeText(this, "界面初始化失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        }
     }
     
     private void setupListeners() {
-        scanButton.setOnClickListener(v -> startBarcodeScanner());
-        
-        exportButton.setOnClickListener(v -> exportData(false));
-        exportCsvButton.setOnClickListener(v -> exportData(true));
-        clearButton.setOnClickListener(v -> clearRecords());
-        
-        // 快递模式选择监听
-        modeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                currentMode = parent.getItemAtPosition(position).toString();
-            }
+        try {
+            scanButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    startBarcodeScanner();
+                }
+            });
             
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-                currentMode = "UPS";
-            }
-        });
-        
-        // 手动输入条码
-        barcodeInput.setOnEditorActionListener((v, actionId, event) -> {
-            String barcode = barcodeInput.getText().toString().trim();
-            if (!barcode.isEmpty()) {
-                processBarcode(barcode);
-                barcodeInput.setText("");
-                return true;
-            }
-            return false;
-        });
+            exportButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    exportData(false);
+                }
+            });
+            
+            exportCsvButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    exportData(true);
+                }
+            });
+            
+            clearButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    clearRecords();
+                }
+            });
+            
+            // 快递模式选择监听
+            modeSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                    currentMode = parent.getItemAtPosition(position).toString();
+                }
+                
+                @Override
+                public void onNothingSelected(AdapterView<?> parent) {
+                    currentMode = "UPS";
+                }
+            });
+            
+            // 手动输入条码
+            barcodeInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+                @Override
+                public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                    if (actionId == EditorInfo.IME_ACTION_DONE || 
+                        (event != null && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                        String barcode = barcodeInput.getText().toString().trim();
+                        if (!barcode.isEmpty()) {
+                            processBarcode(barcode);
+                            barcodeInput.setText("");
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            });
+            
+        } catch (Exception e) {
+            Toast.makeText(this, "事件监听设置失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        }
     }
     
     private void startBarcodeScanner() {
-        IntentIntegrator integrator = new IntentIntegrator(this);
-        integrator.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES);
-        integrator.setPrompt("扫描条码");
-        integrator.setCameraId(0);
-        integrator.setBeepEnabled(true);
-        integrator.setBarcodeImageEnabled(false);
-        integrator.initiateScan();
+        try {
+            IntentIntegrator integrator = new IntentIntegrator(this);
+            integrator.setDesiredBarcodeFormats(IntentIntegrator.ALL_CODE_TYPES);
+            integrator.setPrompt("请将条码对准扫描框");
+            integrator.setOrientationLocked(false);
+            integrator.setBeepEnabled(true);
+            integrator.initiateScan();
+        } catch (Exception e) {
+            Toast.makeText(this, "启动扫码失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        }
     }
     
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
-        if (result != null) {
-            if (result.getContents() == null) {
-                Toast.makeText(this, "扫描取消", Toast.LENGTH_SHORT).show();
+        try {
+            IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+            if (result != null) {
+                if (result.getContents() == null) {
+                    Toast.makeText(this, "扫码已取消", Toast.LENGTH_SHORT).show();
+                } else {
+                    String scannedBarcode = result.getContents();
+                    processBarcode(scannedBarcode);
+                    Toast.makeText(this, "扫码成功！", Toast.LENGTH_SHORT).show();
+                }
             } else {
-                processBarcode(result.getContents());
+                super.onActivityResult(requestCode, resultCode, data);
             }
-        } else {
-            super.onActivityResult(requestCode, resultCode, data);
+        } catch (Exception e) {
+            Toast.makeText(this, "处理扫码结果失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
         }
     }
     
     private void processBarcode(String barcode) {
-        String processedBarcode = formatBarcode(barcode);
-        
-        if (processedBarcode.isEmpty()) {
-            Toast.makeText(this, "无效的条码格式", Toast.LENGTH_SHORT).show();
-            return;
+        try {
+            String formatted = formatBarcode(barcode);
+            if (!formatted.isEmpty()) {
+                // 创建扫描记录
+                String timestamp = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
+                ScanRecord record = new ScanRecord(timestamp, currentMode, barcode, formatted);
+                scanRecords.add(record);
+                
+                // 更新显示列表
+                String displayText = String.format("[%s] %s: %s", timestamp, currentMode, formatted);
+                displayList.add(0, displayText); // 添加到列表顶部
+                listAdapter.notifyDataSetChanged();
+                
+                // 更新统计
+                updateStats();
+                
+                Toast.makeText(this, "已添加: " + formatted, Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "无效的条码格式", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "处理条码失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
         }
-        
-        // 创建扫描记录
-        String currentTime = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
-        ScanRecord record = new ScanRecord(currentTime, currentMode, barcode, processedBarcode);
-        
-        scanRecords.add(record);
-        
-        // 更新显示列表
-        String displayText = String.format("[%s] %s: %s", currentTime, currentMode, processedBarcode);
-        displayList.add(0, displayText); // 添加到顶部
-        listAdapter.notifyDataSetChanged();
-        
-        updateStats();
-        
-        // 播放提示音
-        Toast.makeText(this, "✅ 扫描成功: " + processedBarcode, Toast.LENGTH_SHORT).show();
     }
     
     private String formatBarcode(String barcode) {
-        String code = barcode.trim();
-        
-        switch (currentMode) {
-            case "UPS":
-                if (code.matches("^1Z[0-9A-Z]+$")) {
-                    return code;
-                }
-                break;
-            case "FedEx":
-                String digits = code.replaceAll("\\D", "");
-                if (digits.length() >= 12) {
-                    return digits.substring(digits.length() - 12);
-                }
-                break;
-            case "USPS":
-                if (code.matches(".*9[0-9]{15,21}.*")) {
-                    return code.replaceAll(".*?(9[0-9]{15,21}).*", "$1");
-                }
-                break;
-            case "Amazon":
-                if (code.matches("^TBA[0-9A-Z]+$")) {
-                    return code;
-                }
-                break;
-            case "DHL":
-                if (code.length() >= 10 && code.matches("^[0-9]+$")) {
-                    return code;
-                }
-                break;
-            case "顺丰":
-                if (code.matches("^SF[0-9]{12}$") || code.matches("^[0-9]{12}$")) {
-                    return code.startsWith("SF") ? code : "SF" + code;
-                }
-                break;
-            case "圆通":
-                if (code.matches("^YT[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
-                    return code.startsWith("YT") ? code : "YT" + code;
-                }
-                break;
-            case "中通":
-                if (code.matches("^ZTO[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
-                    return code.startsWith("ZTO") ? code : "ZTO" + code;
-                }
-                break;
-            case "申通":
-                if (code.matches("^STO[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
-                    return code.startsWith("STO") ? code : "STO" + code;
-                }
-                break;
-            case "韵达":
-                if (code.matches("^YD[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
-                    return code.startsWith("YD") ? code : "YD" + code;
-                }
-                break;
-            case "通用":
-            default:
-                return code; // 通用模式，返回原始条码
+        try {
+            String code = barcode.trim();
+            
+            switch (currentMode) {
+                case "UPS":
+                    if (code.matches("^1Z[0-9A-Z]+$")) {
+                        return code;
+                    }
+                    break;
+                case "FedEx":
+                    String digits = code.replaceAll("\\D", "");
+                    if (digits.length() >= 12) {
+                        return digits.substring(digits.length() - 12);
+                    }
+                    break;
+                case "USPS":
+                    if (code.matches(".*9[0-9]{15,21}.*")) {
+                        return code.replaceAll(".*?(9[0-9]{15,21}).*", "$1");
+                    }
+                    break;
+                case "Amazon":
+                    if (code.matches("^TBA[0-9A-Z]+$")) {
+                        return code;
+                    }
+                    break;
+                case "DHL":
+                    if (code.length() >= 10 && code.matches("^[0-9]+$")) {
+                        return code;
+                    }
+                    break;
+                case "顺丰":
+                    if (code.matches("^SF[0-9]{12}$") || code.matches("^[0-9]{12}$")) {
+                        return code.startsWith("SF") ? code : "SF" + code;
+                    }
+                    break;
+                case "圆通":
+                    if (code.matches("^YT[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
+                        return code.startsWith("YT") ? code : "YT" + code;
+                    }
+                    break;
+                case "中通":
+                    if (code.matches("^ZTO[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
+                        return code.startsWith("ZTO") ? code : "ZTO" + code;
+                    }
+                    break;
+                case "申通":
+                    if (code.matches("^STO[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
+                        return code.startsWith("STO") ? code : "STO" + code;
+                    }
+                    break;
+                case "韵达":
+                    if (code.matches("^YD[0-9]{10,13}$") || code.matches("^[0-9]{10,13}$")) {
+                        return code.startsWith("YD") ? code : "YD" + code;
+                    }
+                    break;
+                case "通用":
+                default:
+                    return code; // 通用模式，返回原始条码
+            }
+            
+            return ""; // 无效格式
+        } catch (Exception e) {
+            Toast.makeText(this, "格式化条码失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+            return "";
         }
-        
-        return ""; // 无效格式
     }
     
     private void updateStats() {
-        int totalCount = scanRecords.size();
-        
-        // 统计各快递公司数量
-        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
-        
-        for (ScanRecord record : scanRecords) {
-            String mode = record.getMode();
-            counts.put(mode, counts.getOrDefault(mode, 0) + 1);
-        }
-        
-        StringBuilder statsBuilder = new StringBuilder();
-        statsBuilder.append("总计: ").append(totalCount);
-        
-        // 显示前5个最多的快递公司
-        counts.entrySet().stream()
-            .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
-            .limit(5)
-            .forEach(entry -> {
-                statsBuilder.append(" | ").append(entry.getKey()).append(": ").append(entry.getValue());
-            });
-        
-        statsText.setText(statsBuilder.toString());
-        
-        // 控制空状态显示
-        if (totalCount == 0) {
-            emptyText.setVisibility(View.VISIBLE);
-            recordsList.setVisibility(View.GONE);
-        } else {
-            emptyText.setVisibility(View.GONE);
-            recordsList.setVisibility(View.VISIBLE);
+        try {
+            int totalCount = scanRecords.size();
+            
+            // 简单统计 - 避免复杂的 Map 操作
+            int upsCount = 0, fedexCount = 0, uspsCount = 0, amazonCount = 0, otherCount = 0;
+            
+            for (ScanRecord record : scanRecords) {
+                String mode = record.getMode();
+                if ("UPS".equals(mode)) {
+                    upsCount++;
+                } else if ("FedEx".equals(mode)) {
+                    fedexCount++;
+                } else if ("USPS".equals(mode)) {
+                    uspsCount++;
+                } else if ("Amazon".equals(mode)) {
+                    amazonCount++;
+                } else {
+                    otherCount++;
+                }
+            }
+            
+            String statsInfo = String.format("总计: %d | UPS: %d | FedEx: %d | USPS: %d | Amazon: %d | 其他: %d", 
+                totalCount, upsCount, fedexCount, uspsCount, amazonCount, otherCount);
+            
+            statsText.setText(statsInfo);
+            
+            // 控制空状态显示
+            if (totalCount == 0) {
+                emptyText.setVisibility(View.VISIBLE);
+                recordsList.setVisibility(View.GONE);
+            } else {
+                emptyText.setVisibility(View.GONE);
+                recordsList.setVisibility(View.VISIBLE);
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "更新统计失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
         }
     }
     
     private void exportData(boolean includeOriginal) {
-        if (scanRecords.isEmpty()) {
-            Toast.makeText(this, "没有数据可以导出", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        
         try {
+            if (scanRecords.isEmpty()) {
+                Toast.makeText(this, "没有数据可以导出", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            
+            // 使用原生导出器
             NativeFileExporter exporter = new NativeFileExporter(this);
-            String savedPath = exporter.exportToCSV(convertToExporterRecords(), includeOriginal);
+            String savedPath = exporter.exportToCSV(convertToExporterRecords(scanRecords), includeOriginal);
             
-            String message = String.format("✅ 导出成功！\n文件已保存到: %s\n记录数: %d", 
-                savedPath, scanRecords.size());
-            
+            String message = String.format("✅ 导出成功！\n📄 记录数：%d 条\n📁 文件路径：%s", 
+                scanRecords.size(), savedPath);
             Toast.makeText(this, message, Toast.LENGTH_LONG).show();
             
         } catch (Exception e) {
             Toast.makeText(this, "导出失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            e.printStackTrace();
         }
     }
     
-    private List<NativeFileExporter.ScanRecord> convertToExporterRecords() {
-        List<NativeFileExporter.ScanRecord> exportRecords = new ArrayList<>();
-        for (ScanRecord record : scanRecords) {
-            exportRecords.add(new NativeFileExporter.ScanRecord(
-                record.getTime(), record.getMode(), record.getOriginal(), record.getProcessed()
-            ));
+    private List<NativeFileExporter.ScanRecord> convertToExporterRecords(List<ScanRecord> records) {
+        List<NativeFileExporter.ScanRecord> exporterRecords = new ArrayList<>();
+        for (ScanRecord record : records) {
+            exporterRecords.add(new NativeFileExporter.ScanRecord(
+                record.getTime(), record.getMode(), record.getOriginal(), record.getProcessed()));
         }
-        return exportRecords;
+        return exporterRecords;
     }
     
     private void clearRecords() {
-        scanRecords.clear();
-        displayList.clear();
-        listAdapter.notifyDataSetChanged();
-        updateStats();
-        Toast.makeText(this, "记录已清除", Toast.LENGTH_SHORT).show();
+        try {
+            scanRecords.clear();
+            displayList.clear();
+            listAdapter.notifyDataSetChanged();
+            updateStats();
+            Toast.makeText(this, "已清除所有记录", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "清除记录失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
     }
     
     private void requestPermissions() {
-        String[] permissions = {
-            Manifest.permission.CAMERA,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        };
-        
-        boolean needRequest = false;
-        for (String permission : permissions) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                needRequest = true;
-                break;
+        try {
+            String[] permissions = {
+                Manifest.permission.CAMERA,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            };
+            
+            boolean needRequest = false;
+            for (String permission : permissions) {
+                if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                    needRequest = true;
+                    break;
+                }
             }
-        }
-        
-        if (needRequest) {
-            ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
+            
+            if (needRequest) {
+                ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
+            }
+        } catch (Exception e) {
+            Toast.makeText(this, "权限请求失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
         }
     }
     
@@ -331,14 +411,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             
-            if (!allGranted) {
-                Toast.makeText(this, "需要相机和存储权限才能正常使用", Toast.LENGTH_LONG).show();
+            if (allGranted) {
+                Toast.makeText(this, "权限已授予", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "某些权限被拒绝，功能可能受限", Toast.LENGTH_LONG).show();
             }
         }
     }
     
-    // 内部数据类
-    private static class ScanRecord {
+    // 内部类：扫描记录
+    public static class ScanRecord {
         private String time;
         private String mode;
         private String original;
