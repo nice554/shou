@@ -145,29 +145,79 @@ public class FileManagerPlugin extends Plugin {
         }
     }
 
+    @PluginMethod
+    public void openAppFolder(PluginCall call) {
+        try {
+            // 尝试打开下载文件夹中的应用文件夹
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File appDir = new File(downloadsDir, "快递扫码助手");
+            
+            if (!appDir.exists()) {
+                // 如果下载文件夹中没有，尝试文档文件夹
+                File documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+                appDir = new File(documentsDir, "快递扫码助手");
+            }
+            
+            if (appDir.exists()) {
+                // 尝试使用文件管理器打开特定文件夹
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                Uri uri = Uri.fromFile(appDir);
+                intent.setDataAndType(uri, "resource/folder");
+                
+                if (intent.resolveActivity(getContext().getPackageManager()) != null) {
+                    getActivity().startActivity(intent);
+                    
+                    JSObject result = new JSObject();
+                    result.put("success", true);
+                    result.put("path", appDir.getAbsolutePath());
+                    result.put("message", "快递扫码助手文件夹已打开");
+                    call.resolve(result);
+                } else {
+                    // 如果无法直接打开文件夹，回退到通用文件管理器
+                    openFileManager(call);
+                }
+            } else {
+                JSObject result = new JSObject();
+                result.put("success", false);
+                result.put("message", "快递扫码助手文件夹不存在，请先导出文件");
+                call.resolve(result);
+            }
+        } catch (Exception e) {
+            call.reject("打开应用文件夹失败: " + e.getMessage());
+        }
+    }
+
     private String saveToDownloads(String filename, String content) throws IOException {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10+ 使用 MediaStore
+            // Android 10+ 使用 MediaStore，在下载目录创建快递扫码助手文件夹
             ContentResolver resolver = getContext().getContentResolver();
             ContentValues values = new ContentValues();
             values.put(MediaStore.Downloads.DISPLAY_NAME, filename);
             values.put(MediaStore.Downloads.MIME_TYPE, "text/csv");
-            values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+            values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/快递扫码助手");
 
             Uri uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
             if (uri != null) {
                 try (OutputStream outputStream = resolver.openOutputStream(uri)) {
                     outputStream.write(content.getBytes("UTF-8"));
                 }
-                return uri.toString();
+                return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/快递扫码助手/" + filename;
             } else {
                 throw new IOException("无法创建文件");
             }
         } else {
             // Android 9 及以下直接写入文件
             File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            File file = new File(downloadsDir, filename);
+            File appDir = new File(downloadsDir, "快递扫码助手");
             
+            // 创建应用专用文件夹
+            if (!appDir.exists()) {
+                if (!appDir.mkdirs()) {
+                    throw new IOException("无法创建应用文件夹");
+                }
+            }
+            
+            File file = new File(appDir, filename);
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 fos.write(content.getBytes("UTF-8"));
             }
@@ -178,19 +228,19 @@ public class FileManagerPlugin extends Plugin {
 
     private String saveToDocuments(String filename, String content) throws IOException {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // Android 10+ 使用 MediaStore
+            // Android 10+ 使用 MediaStore，在文档目录创建快递扫码助手文件夹
             ContentResolver resolver = getContext().getContentResolver();
             ContentValues values = new ContentValues();
             values.put(MediaStore.Files.FileColumns.DISPLAY_NAME, filename);
             values.put(MediaStore.Files.FileColumns.MIME_TYPE, "text/csv");
-            values.put(MediaStore.Files.FileColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS);
+            values.put(MediaStore.Files.FileColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS + "/快递扫码助手");
 
             Uri uri = resolver.insert(MediaStore.Files.getContentUri("external"), values);
             if (uri != null) {
                 try (OutputStream outputStream = resolver.openOutputStream(uri)) {
                     outputStream.write(content.getBytes("UTF-8"));
                 }
-                return uri.toString();
+                return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS) + "/快递扫码助手/" + filename;
             } else {
                 throw new IOException("无法创建文件");
             }
@@ -200,8 +250,16 @@ public class FileManagerPlugin extends Plugin {
             if (!documentsDir.exists()) {
                 documentsDir.mkdirs();
             }
-            File file = new File(documentsDir, filename);
             
+            // 创建应用专用文件夹
+            File appDir = new File(documentsDir, "快递扫码助手");
+            if (!appDir.exists()) {
+                if (!appDir.mkdirs()) {
+                    throw new IOException("无法创建应用文件夹");
+                }
+            }
+            
+            File file = new File(appDir, filename);
             try (FileOutputStream fos = new FileOutputStream(file)) {
                 fos.write(content.getBytes("UTF-8"));
             }

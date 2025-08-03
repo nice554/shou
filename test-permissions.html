@@ -38,6 +38,7 @@
     <button onclick="testSaveToDownloads()">📥 测试保存到下载文件夹</button>
     <button onclick="testSaveToDocuments()">📄 测试保存到文档文件夹</button>
     <button onclick="openFileManager()">🗂️ 打开文件管理器</button>
+    <button onclick="openAppFolder()">📁 打开应用文件夹</button>
     <button onclick="clearLog()">🧹 清除日志</button>
     
     <div id="log"></div>
@@ -171,6 +172,21 @@
                 log(`✅ 文件管理器打开成功: ${JSON.stringify(result)}`, 'success');
             } catch (error) {
                 log(`❌ 打开文件管理器失败: ${error.message}`, 'error');
+            }
+        }
+
+        async function openAppFolder() {
+            if (!window.Capacitor || !window.Capacitor.Plugins.FileManager) {
+                log('❌ FileManager 插件不可用', 'error');
+                return;
+            }
+
+            try {
+                log('📁 打开快递扫码助手专用文件夹...');
+                const result = await window.Capacitor.Plugins.FileManager.openAppFolder();
+                log(`✅ 应用文件夹打开成功: ${JSON.stringify(result)}`, 'success');
+            } catch (error) {
+                log(`❌ 打开应用文件夹失败: ${error.message}`, 'error');
             }
         }
 
