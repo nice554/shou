@@ -199,101 +199,35 @@ document.getElementById('export-btn').onclick = async () => {
     
     console.log('CSV 内容生成完成:', csvContent.substring(0, 100) + '...');
     
-    // 提供多种保存选项
+    // 使用纯原生导出，绕过 WebView 限制
     if (window.Capacitor && window.Capacitor.Plugins.FileManager) {
       try {
-        console.log('使用原生文件管理插件保存文件:', filename);
+        console.log('使用纯原生导出，绕过 WebView 限制');
         
-        // 显示保存选项
-        const saveOption = confirm(`📁 选择保存方式：
-
-✅ 确定：让我选择保存位置（推荐）
-❌ 取消：直接保存到应用目录
-
-推荐选择"确定"，您可以自由选择保存到任何文件夹！`);
+        // 将数据传递给原生层
+        const nativeResult = await window.Capacitor.Plugins.FileManager.exportDataNatively({
+          data: JSON.stringify(recs),
+          includeOriginal: false
+        });
         
-        if (saveOption) {
-          // 用户选择文件保存位置
-          console.log('用户选择文件保存位置');
-          
-          const pickerResult = await window.Capacitor.Plugins.FileManager.saveFileWithPicker({
-            filename: filename,
-            content: csvContent
-          });
-          
-          console.log('文件选择器保存成功:', pickerResult);
-          
-          alert(`✅ 文件保存成功！
-📄 文件名：${filename}
-📊 记录数：${recs.length} 条
-💾 大小：${Math.round(pickerResult.size / 1024 * 100) / 100} KB
-📁 位置：您选择的文件夹
+        console.log('原生导出成功:', nativeResult);
+        
+        alert(`✅ 文件导出成功！
+📄 文件已直接保存到设备存储
+📊 记录数：${nativeResult.recordCount} 条
+📁 位置：下载文件夹/快递扫码助手/
 
-🎉 文件已保存到您指定的位置！
-您可以在文件管理器中找到该文件。`);
-          
-          return;
-          
-        } else {
-          // 直接保存到应用目录
-          console.log('直接保存到应用目录');
-          
-          const directResult = await window.Capacitor.Plugins.FileManager.saveFileDirectly({
-            filename: filename,
-            content: csvContent
-          });
-          
-          console.log('直接保存成功:', directResult);
-          
-          alert(`✅ 文件已保存到应用目录！
-📁 位置：应用专用文件夹/快递扫码助手/
-📄 文件名：${filename}
-📊 记录数：${recs.length} 条
-💾 大小：${Math.round(directResult.size / 1024 * 100) / 100} KB
-🔧 方式：应用直接保存
+🎉 使用原生 Android 功能，绕过 WebView 限制！
+文件已自动保存，无需任何用户交互。
 
-📂 查找文件：
-• 使用文件管理器搜索"快递扫码助手"
-• 或在 Android/data/com.expressscanner.app/files/ 目录下
-
-💡 完整路径：
-${directResult.path}`);
-          
-          return;
-        }
+💡 文件路径：
+${nativeResult.path}`);
+        
+        return;
         
       } catch (error) {
-        console.error('文件保存失败:', error);
-        
-        // 如果用户取消了文件选择，不显示错误
-        if (error.message && error.message.includes('用户取消')) {
-          console.log('用户取消了文件保存');
-          return;
-        }
-        
-        // 尝试直接保存作为备选方案
-        try {
-          console.log('尝试直接保存作为备选方案');
-          
-          const fallbackResult = await window.Capacitor.Plugins.FileManager.saveFileDirectly({
-            filename: filename,
-            content: csvContent
-          });
-          
-          alert(`✅ 文件已保存（备选方案）！
-📁 位置：应用专用目录
-📄 文件名：${filename}
-📊 记录数：${recs.length} 条
-💾 大小：${Math.round(fallbackResult.size / 1024 * 100) / 100} KB
-
-💡 文件路径：${fallbackResult.path}`);
-          
-          return;
-          
-        } catch (fallbackError) {
-          console.error('备选保存方案也失败:', fallbackError);
-          throw new Error('所有保存方案都失败了: ' + fallbackError.message);
-        }
+        console.error('原生导出失败:', error);
+        // 继续尝试其他方案
       }
     }
     

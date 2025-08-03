@@ -22,6 +22,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 @CapacitorPlugin(name = "FileManager")
 public class FileManagerPlugin extends Plugin {
@@ -197,6 +199,95 @@ public class FileManagerPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("打开文件管理器失败: " + e.getMessage());
         }
+    }
+
+    @PluginMethod
+    public void exportDataNatively(PluginCall call) {
+        try {
+            // 从 JavaScript 获取数据
+            String dataJson = call.getString("data");
+            boolean includeOriginal = call.getBoolean("includeOriginal", false);
+            
+            if (dataJson == null || dataJson.isEmpty()) {
+                call.reject("没有数据可以导出");
+                return;
+            }
+            
+            // 解析 JSON 数据
+            List<NativeFileExporter.ScanRecord> records = parseJsonData(dataJson);
+            
+            if (records.isEmpty()) {
+                call.reject("解析数据失败或数据为空");
+                return;
+            }
+            
+            // 使用原生导出器
+            NativeFileExporter exporter = new NativeFileExporter(getContext());
+            String savedPath = exporter.exportToCSV(records, includeOriginal);
+            
+            JSObject result = new JSObject();
+            result.put("success", true);
+            result.put("path", savedPath);
+            result.put("recordCount", records.size());
+            result.put("includeOriginal", includeOriginal);
+            result.put("message", "文件已成功保存");
+            call.resolve(result);
+            
+        } catch (Exception e) {
+            call.reject("导出失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 解析 JSON 数据为记录列表
+     */
+    private List<NativeFileExporter.ScanRecord> parseJsonData(String jsonData) {
+        List<NativeFileExporter.ScanRecord> records = new ArrayList<>();
+        
+        try {
+            // 简单的 JSON 解析（假设格式为数组）
+            jsonData = jsonData.trim();
+            if (jsonData.startsWith("[") && jsonData.endsWith("]")) {
+                jsonData = jsonData.substring(1, jsonData.length() - 1);
+            }
+            
+            // 分割记录
+            String[] recordStrings = jsonData.split("\\},\\{");
+            
+            for (String recordStr : recordStrings) {
+                recordStr = recordStr.replace("{", "").replace("}", "");
+                
+                String time = extractJsonValue(recordStr, "time");
+                String mode = extractJsonValue(recordStr, "mode");
+                String orig = extractJsonValue(recordStr, "orig");
+                String out = extractJsonValue(recordStr, "out");
+                
+                if (time != null && mode != null && out != null) {
+                    records.add(new NativeFileExporter.ScanRecord(time, mode, orig != null ? orig : out, out));
+                }
+            }
+        } catch (Exception e) {
+            // 如果解析失败，返回空列表
+        }
+        
+        return records;
+    }
+    
+    /**
+     * 从 JSON 字符串中提取值
+     */
+    private String extractJsonValue(String jsonStr, String key) {
+        try {
+            String pattern = "\"" + key + "\"\\s*:\\s*\"([^\"]+)\"";
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
+            java.util.regex.Matcher m = p.matcher(jsonStr);
+            if (m.find()) {
+                return m.group(1);
+            }
+        } catch (Exception e) {
+            // 忽略解析错误
+        }
+        return null;
     }
 
     @PluginMethod
