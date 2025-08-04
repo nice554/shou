@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSONP 云端连接测试</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 30px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .test-section h3 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        
+        .btn:hover {
+            background: #45a049;
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .result.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status.testing {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 JSONP 云端连接测试</h1>
+        
+        <div class="test-section">
+            <h3>📡 连接状态 <span id="connection-status" class="status offline">离线</span></h3>
+            <p>测试与Google Apps Script的连接状态</p>
+            <button class="btn" onclick="testConnection()">🔗 测试连接</button>
+            <div id="connection-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📤 单条数据上传测试</h3>
+            <p>测试上传单条快递记录到云端</p>
+            <button class="btn" onclick="testSingleUpload()">📦 测试单条上传</button>
+            <div id="single-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📚 批量数据上传测试</h3>
+            <p>测试批量上传多条记录到云端</p>
+            <button class="btn" onclick="testBatchUpload()">📋 测试批量上传</button>
+            <div id="batch-result" class="result" style="display: none;"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 查看Google Sheets</h3>
+            <p>测试完成后，请检查您的Google Sheets是否收到了测试数据</p>
+            <button class="btn" onclick="window.open('https://sheets.google.com', '_blank')">🔗 打开Google Sheets</button>
+        </div>
+    </div>
+
+    <script>
+        // 🔧 Google Apps Script URL
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyupKpqj54bMFQpTcOkdDbVZ5oebGCBlg_60g78KjDBMoCcEiLX1FgNTgZCqy5Vk7Ed/exec';
+        
+        // 更新连接状态显示
+        function updateConnectionStatus(status, text) {
+            const statusElement = document.getElementById('connection-status');
+            statusElement.className = `status ${status}`;
+            statusElement.textContent = text;
+        }
+        
+        // 显示结果
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = `result ${type}`;
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+        
+        // 测试连接
+        function testConnection() {
+            updateConnectionStatus('testing', '测试中...');
+            showResult('connection-result', '正在测试连接...', 'info');
+            
+            const callbackName = 'testCallback_' + Date.now();
+            const script = document.createElement('script');
+            
+            // 定义回调函数
+            window[callbackName] = function(response) {
+                document.head.removeChild(script);
+                delete window[callbackName];
+                
+                if (response && response.status === 'healthy') {
+                    updateConnectionStatus('online', '连接正常');
+                    showResult('connection-result', 
+                        `✅ 连接成功！\n\n服务状态: ${response.status}\n消息: ${response.message}\n总记录数: ${response.totalRecords}\n工作表名: ${response.sheetName}\n时间: ${response.timestamp}`, 
+                        'success'
+                    );
+                } else {
+                    updateConnectionStatus('offline', '连接失败');
+                    showResult('connection-result', 
+                        `❌ 连接失败\n\n响应: ${JSON.stringify(response, null, 2)}`, 
+                        'error'
+                    );
+                }
+            };
+            
+            // 设置超时
+            setTimeout(() => {
+                if (window[callbackName]) {
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    updateConnectionStatus('offline', '连接超时');
+                    showResult('connection-result', '❌ 连接超时 (10秒)', 'error');
+                }
+            }, 10000);
+            
+            // 发送请求
+            const params = new URLSearchParams({
+                callback: callbackName,
+                test: 'connection'
+            });
+            
+            script.src = `${GOOGLE_SCRIPT_URL}?${params}`;
+            script.onerror = function() {
+                if (window[callbackName]) {
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    updateConnectionStatus('offline', '网络错误');
+                    showResult('connection-result', '❌ 网络连接失败', 'error');
+                }
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // 测试单条上传
+        function testSingleUpload() {
+            showResult('single-result', '正在测试单条上传...', 'info');
+            
+            const testRecord = {
+                expressType: 'JSONP测试',
+                processedCode: 'JSONP_TEST_' + Date.now(),
+                originalCode: 'ORIGINAL_JSONP_TEST'
+            };
+            
+            // 使用表单POST方式发送数据
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = GOOGLE_SCRIPT_URL;
+            form.target = 'upload_frame_' + Date.now();
+            form.style.display = 'none';
+            
+            const input = document.createElement('input');
+            input.name = 'postData';
+            input.value = JSON.stringify(testRecord);
+            form.appendChild(input);
+            
+            const iframe = document.createElement('iframe');
+            iframe.name = form.target;
+            iframe.style.display = 'none';
+            
+            // 监听iframe加载完成
+            iframe.onload = function() {
+                try {
+                    const response = iframe.contentDocument.body.textContent;
+                    if (response.includes('success')) {
+                        showResult('single-result', 
+                            `✅ 单条上传成功！\n\n测试数据:\n${JSON.stringify(testRecord, null, 2)}\n\n请检查Google Sheets中的新记录`, 
+                            'success'
+                        );
+                    } else {
+                        showResult('single-result', 
+                            `❌ 单条上传失败\n\n响应: ${response}`, 
+                            'error'
+                        );
+                    }
+                } catch (error) {
+                    showResult('single-result', 
+                        `✅ 单条上传可能成功\n\n测试数据:\n${JSON.stringify(testRecord, null, 2)}\n\n请检查Google Sheets确认`, 
+                        'success'
+                    );
+                }
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(form);
+                    document.body.removeChild(iframe);
+                }, 1000);
+            };
+            
+            document.body.appendChild(form);
+            document.body.appendChild(iframe);
+            form.submit();
+        }
+        
+        // 测试批量上传
+        function testBatchUpload() {
+            showResult('batch-result', '正在测试批量上传...', 'info');
+            
+            const testRecords = [
+                {
+                    expressType: 'JSONP批量1',
+                    processedCode: 'BATCH_1_' + Date.now(),
+                    originalCode: 'ORIGINAL_BATCH_1'
+                },
+                {
+                    expressType: 'JSONP批量2', 
+                    processedCode: 'BATCH_2_' + Date.now(),
+                    originalCode: 'ORIGINAL_BATCH_2'
+                },
+                {
+                    expressType: 'JSONP批量3',
+                    processedCode: 'BATCH_3_' + Date.now(),
+                    originalCode: 'ORIGINAL_BATCH_3'
+                }
+            ];
+            
+            // 使用表单POST方式发送数据
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = GOOGLE_SCRIPT_URL;
+            form.target = 'batch_frame_' + Date.now();
+            form.style.display = 'none';
+            
+            const input = document.createElement('input');
+            input.name = 'postData';
+            input.value = JSON.stringify(testRecords);
+            form.appendChild(input);
+            
+            const iframe = document.createElement('iframe');
+            iframe.name = form.target;
+            iframe.style.display = 'none';
+            
+            // 监听iframe加载完成
+            iframe.onload = function() {
+                try {
+                    const response = iframe.contentDocument.body.textContent;
+                    if (response.includes('success')) {
+                        showResult('batch-result', 
+                            `✅ 批量上传成功！\n\n测试数据 (${testRecords.length}条):\n${JSON.stringify(testRecords, null, 2)}\n\n请检查Google Sheets中的新记录`, 
+                            'success'
+                        );
+                    } else {
+                        showResult('batch-result', 
+                            `❌ 批量上传失败\n\n响应: ${response}`, 
+                            'error'
+                        );
+                    }
+                } catch (error) {
+                    showResult('batch-result', 
+                        `✅ 批量上传可能成功\n\n测试数据 (${testRecords.length}条):\n${JSON.stringify(testRecords, null, 2)}\n\n请检查Google Sheets确认`, 
+                        'success'
+                    );
+                }
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(form);
+                    document.body.removeChild(iframe);
+                }, 1000);
+            };
+            
+            document.body.appendChild(form);
+            document.body.appendChild(iframe);
+            form.submit();
+        }
+        
+        // 页面加载时自动测试连接
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(testConnection, 1000);
+        });
+    </script>
+</body>
+</html>

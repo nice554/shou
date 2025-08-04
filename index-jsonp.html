@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快递扫码工具 - 云端同步版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .input-group label {
+            font-weight: bold;
+            min-width: 120px;
+            color: #333;
+        }
+
+        .input-group input, .input-group select {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 15px;
+            background: #e8f5e8;
+            border-radius: 8px;
+        }
+
+        .toggle-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+
+        .toggle-group label {
+            font-weight: bold;
+            color: #2e7d32;
+            cursor: pointer;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+
+        .status-offline { background-color: #f44336; }
+        .status-online { background-color: #4CAF50; }
+        .status-uploading { background-color: #ff9800; }
+
+        .records-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .records-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .records-header h3 {
+            color: #333;
+            font-size: 1.5em;
+        }
+
+        .records-stats {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .records-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .records-table th {
+            background: #4CAF50;
+            color: white;
+            padding: 15px 10px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        .records-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .records-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .records-table tr:hover {
+            background: #f0f8f0;
+        }
+
+        .upload-status {
+            font-size: 0.8em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .upload-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .upload-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .upload-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #4CAF50;
+        }
+
+        .notification.error {
+            background: #f44336;
+        }
+
+        .notification.info {
+            background: #2196F3;
+        }
+
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .input-group label {
+                min-width: auto;
+                margin-bottom: 5px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .records-table {
+                font-size: 0.9em;
+            }
+
+            .records-table th,
+            .records-table td {
+                padding: 8px 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 快递扫码工具</h1>
+            <p>支持实时云端同步 - 让数据管理更简单</p>
+        </div>
+
+        <div class="content">
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="express-type">快递类型:</label>
+                    <select id="express-type">
+                        <option value="顺丰">顺丰速运</option>
+                        <option value="京东">京东物流</option>
+                        <option value="圆通">圆通速递</option>
+                        <option value="中通">中通快递</option>
+                        <option value="申通">申通快递</option>
+                        <option value="韵达">韵达速递</option>
+                        <option value="百世">百世快递</option>
+                        <option value="德邦">德邦快递</option>
+                        <option value="天天">天天快递</option>
+                        <option value="国通">国通快递</option>
+                        <option value="宅急送">宅急送</option>
+                        <option value="EMS">中国邮政EMS</option>
+                        <option value="其他">其他快递</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="barcode-input">扫描条码:</label>
+                    <input type="text" id="barcode-input" placeholder="请扫描或输入快递单号..." autofocus>
+                </div>
+
+                <div class="toggle-group">
+                    <input type="checkbox" id="realtime-upload-toggle" checked>
+                    <label for="realtime-upload-toggle">启用实时云端上传</label>
+                    <span id="upload-status" class="status-indicator status-offline"></span>
+                    <span id="upload-status-text">未连接</span>
+                </div>
+            </div>
+
+            <div class="records-section">
+                <div class="records-header">
+                    <h3>📋 扫描记录</h3>
+                    <div class="records-stats">
+                        总计: <span id="total-count">0</span> 条 | 
+                        云端同步: <span id="synced-count">0</span> 条
+                    </div>
+                </div>
+
+                <table class="records-table">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>快递类型</th>
+                            <th>处理后单号</th>
+                            <th>同步状态</th>
+                        </tr>
+                    </thead>
+                    <tbody id="records-tbody">
+                        <!-- 记录将在这里动态添加 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-primary" onclick="testCloudConnection()">🔗 测试云端连接</button>
+                <button class="btn btn-primary" onclick="uploadAllToCloud()">☁️ 批量上传到云端</button>
+                <button class="btn btn-secondary" onclick="exportRecords()">📊 导出Excel</button>
+                <button class="btn btn-secondary" onclick="copyToClipboard()">📋 复制数据</button>
+                <button class="btn btn-secondary" onclick="clearRecords()">🗑️ 清空记录</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🔧 Google Apps Script URL - 使用JSONP方式
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyupKpqj54bMFQpTcOkdDbVZ5oebGCBlg_60g78KjDBMoCcEiLX1FgNTgZCqy5Vk7Ed/exec';
+        
+        // 全局变量
+        let records = [];
+        let uploadStatus = 'offline';
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRecords();
+            updateDisplay();
+            testCloudConnection();
+            
+            // 条码输入框回车事件
+            document.getElementById('barcode-input').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    const barcode = this.value.trim();
+                    if (barcode) {
+                        addRecord(barcode);
+                        this.value = '';
+                    }
+                }
+            });
+        });
+
+        // 🔧 使用JSONP方式上传到云端
+        function uploadToCloud(record) {
+            if (!record) return;
+            
+            updateUploadStatus('uploading', '上传中...');
+            
+            // 创建JSONP请求
+            const callbackName = 'uploadCallback_' + Date.now();
+            const script = document.createElement('script');
+            
+            // 定义回调函数
+            window[callbackName] = function(response) {
+                document.head.removeChild(script);
+                delete window[callbackName];
+                
+                if (response && response.status === 'success') {
+                    // 上传成功
+                    record.uploadStatus = 'success';
+                    record.uploadTime = new Date().toISOString();
+                    updateUploadStatus('online', '上传成功');
+                    showNotification('✅ 已自动上传到云端', 'success');
+                    updateSyncedCount();
+                } else {
+                    // 上传失败
+                    record.uploadStatus = 'failed';
+                    updateUploadStatus('offline', '上传失败');
+                    showNotification('❌ 云端上传失败: ' + (response?.message || '未知错误'), 'error');
+                }
+                
+                saveRecords();
+                updateDisplay();
+            };
+            
+            // 设置超时处理
+            setTimeout(() => {
+                if (window[callbackName]) {
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    record.uploadStatus = 'failed';
+                    updateUploadStatus('offline', '上传超时');
+                    showNotification('❌ 云端上传超时', 'error');
+                    saveRecords();
+                    updateDisplay();
+                }
+            }, 15000);
+            
+            // 构建请求URL
+            const params = new URLSearchParams({
+                callback: callbackName
+            });
+            
+            script.src = `${GOOGLE_SCRIPT_URL}?${params}`;
+            script.onerror = function() {
+                if (window[callbackName]) {
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    record.uploadStatus = 'failed';
+                    updateUploadStatus('offline', '网络错误');
+                    showNotification('❌ 网络连接失败', 'error');
+                    saveRecords();
+                    updateDisplay();
+                }
+            };
+            
+            document.head.appendChild(script);
+            
+            // 发送POST数据（通过动态创建表单）
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = GOOGLE_SCRIPT_URL;
+            form.target = 'upload_frame_' + Date.now();
+            form.style.display = 'none';
+            
+            const input = document.createElement('input');
+            input.name = 'data';
+            input.value = JSON.stringify(record);
+            form.appendChild(input);
+            
+            const iframe = document.createElement('iframe');
+            iframe.name = form.target;
+            iframe.style.display = 'none';
+            
+            document.body.appendChild(form);
+            document.body.appendChild(iframe);
+            form.submit();
+            
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(form);
+                document.body.removeChild(iframe);
+            }, 1000);
+        }
+
+        // 🔧 测试云端连接
+        function testCloudConnection() {
+            updateUploadStatus('uploading', '测试连接...');
+            
+            const callbackName = 'testCallback_' + Date.now();
+            const script = document.createElement('script');
+            
+            window[callbackName] = function(response) {
+                document.head.removeChild(script);
+                delete window[callbackName];
+                
+                if (response && response.status === 'healthy') {
+                    updateUploadStatus('online', '连接正常');
+                    showNotification('✅ 云端连接正常', 'success');
+                } else {
+                    updateUploadStatus('offline', '连接失败');
+                    showNotification('❌ 云端连接失败', 'error');
+                }
+            };
+            
+            setTimeout(() => {
+                if (window[callbackName]) {
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    updateUploadStatus('offline', '连接超时');
+                    showNotification('❌ 云端连接超时', 'error');
+                }
+            }, 10000);
+            
+            const params = new URLSearchParams({
+                callback: callbackName
+            });
+            
+            script.src = `${GOOGLE_SCRIPT_URL}?${params}`;
+            script.onerror = function() {
+                if (window[callbackName]) {
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                    updateUploadStatus('offline', '网络错误');
+                    showNotification('❌ 网络连接失败', 'error');
+                }
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        // 添加记录
+        function addRecord(barcode) {
+            const expressType = document.getElementById('express-type').value;
+            const processedCode = processBarcode(barcode, expressType);
+            
+            const newRecord = {
+                id: Date.now(),
+                timestamp: new Date().toLocaleString('zh-CN'),
+                expressType: expressType,
+                originalCode: barcode,
+                processedCode: processedCode,
+                uploadStatus: 'pending'
+            };
+            
+            records.unshift(newRecord);
+            saveRecords();
+            updateDisplay();
+            
+            // 如果启用了实时上传，立即上传
+            if (document.getElementById('realtime-upload-toggle').checked) {
+                uploadToCloud(newRecord);
+            }
+            
+            showNotification(`✅ 已添加 ${expressType} 单号`, 'success');
+        }
+
+        // 处理条码
+        function processBarcode(barcode, expressType) {
+            // 根据不同快递类型处理条码
+            switch(expressType) {
+                case '顺丰':
+                    return barcode.toUpperCase();
+                case '京东':
+                    return 'JD' + barcode;
+                case '圆通':
+                    return 'YT' + barcode;
+                default:
+                    return barcode;
+            }
+        }
+
+        // 批量上传到云端
+        function uploadAllToCloud() {
+            const pendingRecords = records.filter(r => r.uploadStatus === 'pending' || r.uploadStatus === 'failed');
+            
+            if (pendingRecords.length === 0) {
+                showNotification('ℹ️ 没有需要上传的记录', 'info');
+                return;
+            }
+            
+            showNotification(`🚀 开始批量上传 ${pendingRecords.length} 条记录...`, 'info');
+            
+            // 逐个上传
+            let uploadIndex = 0;
+            function uploadNext() {
+                if (uploadIndex < pendingRecords.length) {
+                    const record = pendingRecords[uploadIndex];
+                    uploadToCloud(record);
+                    uploadIndex++;
+                    setTimeout(uploadNext, 2000); // 间隔2秒上传下一个
+                } else {
+                    showNotification('✅ 批量上传完成', 'success');
+                }
+            }
+            
+            uploadNext();
+        }
+
+        // 更新上传状态显示
+        function updateUploadStatus(status, text) {
+            uploadStatus = status;
+            const indicator = document.getElementById('upload-status');
+            const statusText = document.getElementById('upload-status-text');
+            
+            indicator.className = `status-indicator status-${status}`;
+            statusText.textContent = text;
+        }
+
+        // 更新同步计数
+        function updateSyncedCount() {
+            const syncedCount = records.filter(r => r.uploadStatus === 'success').length;
+            document.getElementById('synced-count').textContent = syncedCount;
+        }
+
+        // 更新显示
+        function updateDisplay() {
+            const tbody = document.getElementById('records-tbody');
+            tbody.innerHTML = '';
+            
+            document.getElementById('total-count').textContent = records.length;
+            updateSyncedCount();
+            
+            records.forEach(record => {
+                const row = tbody.insertRow();
+                
+                // 时间
+                const timeCell = row.insertCell();
+                timeCell.textContent = record.timestamp;
+                
+                // 快递类型
+                const typeCell = row.insertCell();
+                typeCell.textContent = record.expressType;
+                
+                // 处理后单号
+                const codeCell = row.insertCell();
+                codeCell.textContent = record.processedCode;
+                
+                // 同步状态
+                const statusCell = row.insertCell();
+                const statusSpan = document.createElement('span');
+                statusSpan.className = `upload-status upload-${record.uploadStatus}`;
+                
+                switch(record.uploadStatus) {
+                    case 'success':
+                        statusSpan.textContent = '✅ 已同步';
+                        break;
+                    case 'pending':
+                        statusSpan.textContent = '⏳ 待上传';
+                        break;
+                    case 'failed':
+                        statusSpan.textContent = '❌ 失败';
+                        break;
+                    default:
+                        statusSpan.textContent = '⏳ 待上传';
+                }
+                
+                statusCell.appendChild(statusSpan);
+            });
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // 保存记录到本地存储
+        function saveRecords() {
+            localStorage.setItem('expressRecords', JSON.stringify(records));
+        }
+
+        // 从本地存储加载记录
+        function loadRecords() {
+            const saved = localStorage.getItem('expressRecords');
+            if (saved) {
+                records = JSON.parse(saved);
+            }
+        }
+
+        // 导出Excel
+        function exportRecords() {
+            if (records.length === 0) {
+                showNotification('⚠️ 没有数据可导出', 'error');
+                return;
+            }
+            
+            const csvContent = [
+                ['时间', '快递类型', '原始条码', '处理后单号', '同步状态'],
+                ...records.map(r => [
+                    r.timestamp,
+                    r.expressType,
+                    r.originalCode,
+                    r.processedCode,
+                    r.uploadStatus === 'success' ? '已同步' : '未同步'
+                ])
+            ].map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `快递扫码记录_${new Date().toLocaleDateString()}.csv`;
+            link.click();
+            
+            showNotification('📊 导出成功', 'success');
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard() {
+            if (records.length === 0) {
+                showNotification('⚠️ 没有数据可复制', 'error');
+                return;
+            }
+            
+            const text = records.map(r => 
+                `${r.timestamp}\t${r.expressType}\t${r.processedCode}`
+            ).join('\n');
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('📋 已复制到剪贴板', 'success');
+            }).catch(() => {
+                showNotification('❌ 复制失败', 'error');
+            });
+        }
+
+        // 清空记录
+        function clearRecords() {
+            if (confirm('确定要清空所有记录吗？此操作不可恢复。')) {
+                records = [];
+                saveRecords();
+                updateDisplay();
+                showNotification('🗑️ 记录已清空', 'info');
+            }
+        }
+    </script>
+</body>
+</html>
