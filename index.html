@@ -195,12 +195,10 @@ function uploadToCloud(record) {
   
   const data = [{
     expressType: record.mode,
-    processedCode: record.out,
-    originalCode: record.orig,
-    timestamp: record.time
+    processedCode: record.out
   }];
   
-  fetch("https://script.google.com/macros/s/AKfycbzsoQ_1QyVC09mTBAgLt7KXK9kooB6zvwlOfBOOqRXMD_EiQf3m6mOhdLYcLSMwqS4v/exec", {
+  fetch("https://script.google.com/macros/s/AKfycbzsoQ_1QyVC09mTBAgLt7KXK9kooB6zvwlOfBOOqRXMD_EiQf3m6mOhdLYcLSMwqS4v/AKfycby6-gUV8LaKPnDDBGT5U5nC3WR4KnNb-4-E4Q6rY-trAMcabRzw4gCOa8S582NpPMNn/exec", {
     method: "POST",
     body: JSON.stringify(data),
     headers: {
