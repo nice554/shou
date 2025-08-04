@@ -267,23 +267,7 @@ link.download = `${mmddyyyy}_TrackingNumber.csv`;
   link.click();
 };
 
-document.getElementById('clear-btn').onclick = () => { recs = []; renderTable(); };
-document.getElementById('custom-audio-upload').addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(evt) {
-    const dingAudio = document.getElementById('ding');
-    const dingSrc = document.getElementById('ding-src');
-
-    dingSrc.src = evt.target.result;
-    dingAudio.load();
-
-    alert("✅ 自定义提示音已设置成功！");
-  };
-  reader.readAsDataURL(file);
-});</script>
+document.getElementById('clear-btn').onclick = () => { recs = []; renderTable(); };</script>
 <script>
 document.addEventListener("DOMContentLoaded", function () {
   function hookMutationSave() {

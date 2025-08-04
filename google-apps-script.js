@@ -8,9 +8,19 @@ function doPost(e) {
     // 获取当前电子表格
     const sheet = SpreadsheetApp.getActiveSheet();
     
-    // 解析请求数据
-    const requestData = JSON.parse(e.postData.contents);
-    console.log('接收到数据:', requestData);
+    // 解析请求数据 - 支持两种方式：表单提交和直接POST
+    let requestData;
+    if (e.parameter && e.parameter.data) {
+      // 表单提交方式 (JSONP)
+      requestData = JSON.parse(e.parameter.data);
+      console.log('接收到表单数据:', requestData);
+    } else if (e.postData && e.postData.contents) {
+      // 直接POST方式 (fetch)
+      requestData = JSON.parse(e.postData.contents);
+      console.log('接收到POST数据:', requestData);
+    } else {
+      throw new Error('未找到有效的请求数据');
+    }
     
     // 确保数据是数组格式
     const records = Array.isArray(requestData) ? requestData : [requestData];
@@ -64,12 +74,51 @@ function doPost(e) {
 }
 
 /**
+ * 处理GET请求 - 用于JSONP连接测试
+ */
+function doGet(e) {
+  try {
+    // 获取callback参数（JSONP需要）
+    const callback = e.parameter.callback || 'callback';
+    
+    // 构建响应数据
+    const responseData = {
+      status: 'success',
+      message: '连接正常',
+      timestamp: new Date().toISOString(),
+      service: 'Google Apps Script',
+      version: '1.0'
+    };
+    
+    // 返回JSONP响应
+    const jsonpResponse = callback + '(' + JSON.stringify(responseData) + ');';
+    
+    return ContentService
+      .createTextOutput(jsonpResponse)
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      
+  } catch (error) {
+    const callback = e.parameter.callback || 'callback';
+    const errorData = {
+      status: 'error',
+      message: error.toString(),
+      timestamp: new Date().toISOString()
+    };
+    const jsonpResponse = callback + '(' + JSON.stringify(errorData) + ');';
+    return ContentService
+      .createTextOutput(jsonpResponse)
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+}
+
+/**
  * 测试函数 - 用于验证脚本是否正常工作
  */
 function testFunction() {
+  // 测试表单提交方式（JSONP）
   const testData = {
-    postData: {
-      contents: JSON.stringify([
+    parameter: {
+      data: JSON.stringify([
         {
           expressType: 'UPS',
           processedCode: '1Z999AA1234567890',
