@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快递扫码工具 - 快速启动</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        h1 { text-align: center; margin-bottom: 30px; }
+        .method {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border-left: 5px solid #4CAF50;
+        }
+        .method h3 { margin-top: 0; color: #4CAF50; }
+        .code {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .button {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 5px;
+        }
+        .button:hover { background: #45a049; }
+        .error { background: rgba(255,0,0,0.2); border-left-color: #ff4444; }
+        .warning { background: rgba(255,165,0,0.2); border-left-color: #ffa500; }
+        .success { background: rgba(0,255,0,0.2); border-left-color: #00ff00; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 快递扫码工具 - 快速启动指南</h1>
+        
+        <div class="method error">
+            <h3>❌ 当前问题</h3>
+            <p>您遇到了 <strong>"Failed to fetch"</strong> 错误，这是因为直接打开HTML文件会遇到CORS跨域限制。</p>
+        </div>
+
+        <div class="method success">
+            <h3>✅ 解决方案1：使用本地HTTP服务器（推荐）</h3>
+            
+            <h4>🐍 如果您有Python：</h4>
+            <div class="code">python -m http.server 8000</div>
+            <p>然后访问：<a href="http://localhost:8000" class="button">http://localhost:8000</a></p>
+            
+            <h4>📦 如果您有Node.js：</h4>
+            <div class="code">npx http-server -p 8000</div>
+            <p>然后访问：<a href="http://localhost:8000" class="button">http://localhost:8000</a></p>
+            
+            <h4>🖥️ 使用脚本：</h4>
+            <p>Windows: 双击 <code>start-server.bat</code></p>
+            <p>Linux/Mac: 运行 <code>./start-server.sh</code></p>
+        </div>
+
+        <div class="method warning">
+            <h3>🌐 解决方案2：在线部署</h3>
+            <p>将文件上传到以下任一平台：</p>
+            <a href="https://pages.github.com/" class="button">GitHub Pages</a>
+            <a href="https://www.netlify.com/" class="button">Netlify</a>
+            <a href="https://vercel.com/" class="button">Vercel</a>
+            <a href="https://surge.sh/" class="button">Surge.sh</a>
+        </div>
+
+        <div class="method">
+            <h3>🔧 解决方案3：更新Google Apps Script</h3>
+            <p>使用支持CORS的版本：</p>
+            <ol>
+                <li>复制 <code>google-apps-script-cors.js</code> 中的代码</li>
+                <li>替换您现有的Google Apps Script代码</li>
+                <li>重新部署Web应用</li>
+            </ol>
+        </div>
+
+        <div class="method">
+            <h3>🧪 测试连接</h3>
+            <button onclick="testConnection()" class="button">测试Google Sheets连接</button>
+            <div id="test-result" style="margin-top: 10px;"></div>
+        </div>
+
+        <div class="method">
+            <h3>📱 快速访问</h3>
+            <a href="index.html" class="button">主扫码工具</a>
+            <a href="test-upload.html" class="button">测试上传</a>
+            <a href="DEPLOYMENT_GUIDE.md" class="button">部署指南</a>
+        </div>
+    </div>
+
+    <script>
+        async function testConnection() {
+            const result = document.getElementById('test-result');
+            result.innerHTML = '🔄 正在测试连接...';
+            
+            try {
+                const response = await fetch("https://script.google.com/macros/s/AKfycbwXpnic2wOHYIzer4HIgMxMmV4v569Csg6pwmIo2cnFnB--ADvahjbKbFxGUSzgpM9D/exec", {
+                    method: "POST",
+                    body: JSON.stringify([{
+                        expressType: 'TEST',
+                        processedCode: 'CONNECTION_TEST_' + Date.now()
+                    }]),
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+                
+                if (response.ok) {
+                    result.innerHTML = '✅ 连接成功！Google Sheets集成正常工作';
+                    result.style.color = '#4CAF50';
+                } else {
+                    result.innerHTML = `❌ 连接失败！状态码: ${response.status}`;
+                    result.style.color = '#ff4444';
+                }
+            } catch (error) {
+                result.innerHTML = `❌ 连接错误: ${error.message}<br><strong>解决方案：使用HTTP服务器运行</strong>`;
+                result.style.color = '#ff4444';
+            }
+        }
+
+        // 检测当前运行环境
+        if (location.protocol === 'file:') {
+            document.body.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)';
+            document.querySelector('h1').innerHTML += '<br><small style="color: #ffeb3b;">⚠️ 检测到file://协议，需要使用HTTP服务器</small>';
+        } else {
+            document.querySelector('h1').innerHTML += '<br><small style="color: #4CAF50;">✅ 检测到HTTP协议，环境正常</small>';
+        }
+    </script>
+</body>
+</html>
