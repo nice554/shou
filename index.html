@@ -70,6 +70,7 @@ document.addEventListener('touchmove', function (e) {
 <label><input checked="" id="dedup-toggle" type="checkbox"/> 启用防重复</label><br/>
 <label><input id="normal-toggle" type="checkbox"/> 启用普通模式</label><br/>
 <label><input id="qrcode-toggle" type="checkbox"/> 启用 QRCode 智能识别</label><br/>
+<label><input id="realtime-upload-toggle" type="checkbox" checked/> 启用实时云端上传</label><br/>
 <button id="export-btn">导出 Excel</button>
 <button id="export-csv-btn">导出 CSV</button>
 <button id="clear-btn">清空记录</button>
@@ -162,8 +163,14 @@ document.getElementById('barcode-input').addEventListener('keydown', e => {
     const note = document.getElementById('note');
     if (out && (!dedup || !exists)) {
       const t = new Date().toLocaleTimeString();
-      recs.unshift({ time: t, mode: isQRCodeFormat(orig)?'QRCode':(document.getElementById('normal-toggle').checked?'Normal':mode), orig, out });
+      const newRecord = { time: t, mode: isQRCodeFormat(orig)?'QRCode':(document.getElementById('normal-toggle').checked?'Normal':mode), orig, out };
+      recs.unshift(newRecord);
       renderTable();
+      
+      // 实时上传到云端（如果启用）
+      if (document.getElementById('realtime-upload-toggle').checked) {
+        uploadToCloud(newRecord);
+      }
       
       document.getElementById('ding').play().catch(() => {});
 if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
@@ -178,6 +185,46 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
 });
 
 document.getElementById('search-box').addEventListener('input', () => renderTable());
+
+// 实时上传到云端的函数
+function uploadToCloud(record) {
+  // 显示上传状态
+  const note = document.getElementById('note');
+  note.textContent = '☁️ 正在上传到云端...';
+  note.style.color = 'blue';
+  
+  const data = [{
+    expressType: record.mode,
+    processedCode: record.out,
+    originalCode: record.orig,
+    timestamp: record.time
+  }];
+  
+  fetch("https://script.google.com/macros/s/AKfycbzsoQ_1QyVC09mTBAgLt7KXK9kooB6zvwlOfBOOqRXMD_EiQf3m6mOhdLYcLSMwqS4v/exec", {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  }).then(res => {
+    if (res.ok) {
+      note.textContent = '✅ 已自动上传到云端';
+      note.style.color = 'green';
+      setTimeout(() => {
+        note.textContent = '';
+      }, 2000);
+    } else {
+      throw new Error('上传失败');
+    }
+  }).catch(err => {
+    note.textContent = '❌ 云端上传失败，数据已本地保存';
+    note.style.color = 'red';
+    setTimeout(() => {
+      note.textContent = '';
+    }, 3000);
+    console.error("云端上传失败:", err);
+  });
+}
 
 document.getElementById('export-btn').onclick = () => {
   const data = recs.map(r => ({ 时间: r.time, 快递: r.mode, 处理后: r.out }));
