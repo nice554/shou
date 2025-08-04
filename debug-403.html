@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403错误诊断工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #dc3545;
+            text-align: center;
+        }
+        .error-box {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #f5c6cb;
+            margin: 20px 0;
+        }
+        .success-box {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #c3e6cb;
+            margin: 20px 0;
+        }
+        .info-box {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #bee5eb;
+            margin: 20px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .danger {
+            background: #dc3545;
+        }
+        .danger:hover {
+            background: #c82333;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .url-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .step {
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 403 Forbidden 错误诊断</h1>
+        
+        <div class="error-box">
+            <strong>检测到403错误！</strong><br>
+            这通常意味着Google Apps Script的访问权限设置不正确。
+        </div>
+
+        <div class="step">
+            <h3>步骤1: 输入您的Apps Script URL</h3>
+            <input type="text" id="scriptUrl" class="url-input" 
+                   placeholder="https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec"
+                   value="https://script.google.com/macros/s/AKfycby-lhLZuklp-EY_wDPZuIXeIbCF1puzC7K1timfXWm1VpSGYAtmphpuYGIanwIiK3Nj/exec">
+        </div>
+
+        <div class="step">
+            <h3>步骤2: 运行诊断测试</h3>
+            <button onclick="testDirectAccess()">🔗 直接访问测试</button>
+            <button onclick="testJSONP()">📡 JSONP连接测试</button>
+            <button onclick="testFormSubmit()">📝 表单提交测试</button>
+            <button onclick="clearResults()" class="danger">🗑️ 清除结果</button>
+        </div>
+
+        <div id="result"></div>
+
+        <div class="info-box">
+            <h4>🔧 常见解决方案：</h4>
+            <ol>
+                <li><strong>检查部署权限</strong>：确保设置为"任何人"可访问</li>
+                <li><strong>重新部署</strong>：创建新版本并重新部署</li>
+                <li><strong>检查Apps Script代码</strong>：确保有doGet和doPost函数</li>
+                <li><strong>授权权限</strong>：确保已授权Google Sheets访问权限</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h3>📋 权限设置检查清单</h3>
+            <p>在Google Apps Script中确认以下设置：</p>
+            <ul>
+                <li>✅ 类型：Web 应用</li>
+                <li>✅ 执行身份：我</li>
+                <li>⚠️ <strong>有权访问的用户：任何人</strong> (最重要！)</li>
+                <li>✅ 已保存并部署最新版本</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function showResult(message, type = 'info') {
+            const result = document.getElementById('result');
+            result.className = `result ${type}-box`;
+            result.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>\n${message}`;
+        }
+
+        function testDirectAccess() {
+            const url = document.getElementById('scriptUrl').value.trim();
+            if (!url) {
+                showResult('❌ 请先输入Apps Script URL！', 'error');
+                return;
+            }
+
+            showResult('🔍 正在测试直接访问...', 'info');
+            
+            // 在新标签页中打开URL进行测试
+            const testWindow = window.open(url, '_blank');
+            
+            setTimeout(() => {
+                showResult(`✅ 已在新标签页中打开URL进行测试\n\n如果看到：\n- JSON数据 = 权限正常 ✅\n- 403/404错误 = 权限问题 ❌\n- 登录页面 = 需要重新设置权限 ❌\n\n测试URL: ${url}`, 'info');
+            }, 1000);
+        }
+
+        function testJSONP() {
+            const baseUrl = document.getElementById('scriptUrl').value.trim();
+            if (!baseUrl) {
+                showResult('❌ 请先输入Apps Script URL！', 'error');
+                return;
+            }
+
+            showResult('📡 正在测试JSONP连接...', 'info');
+            
+            const script = document.createElement('script');
+            const callbackName = 'testCallback_' + Date.now();
+            
+            window[callbackName] = function(data) {
+                showResult(`✅ JSONP连接成功！\n\n响应数据:\n${JSON.stringify(data, null, 2)}`, 'success');
+                document.head.removeChild(script);
+                delete window[callbackName];
+            };
+            
+            script.onerror = function() {
+                showResult(`❌ JSONP连接失败！\n\n可能原因：\n1. Apps Script权限设置错误\n2. URL不正确\n3. 缺少doGet函数\n\n测试URL: ${baseUrl}?callback=${callbackName}`, 'error');
+                document.head.removeChild(script);
+                delete window[callbackName];
+            };
+            
+            script.src = `${baseUrl}?callback=${callbackName}&test=true`;
+            document.head.appendChild(script);
+            
+            // 设置超时
+            setTimeout(() => {
+                if (window[callbackName]) {
+                    showResult(`⏰ JSONP连接超时！\n\n可能原因：\n1. 网络问题\n2. Apps Script响应慢\n3. 权限设置问题\n\n请检查Apps Script部署设置`, 'error');
+                    if (document.head.contains(script)) {
+                        document.head.removeChild(script);
+                    }
+                    delete window[callbackName];
+                }
+            }, 15000);
+        }
+
+        function testFormSubmit() {
+            const url = document.getElementById('scriptUrl').value.trim();
+            if (!url) {
+                showResult('❌ 请先输入Apps Script URL！', 'error');
+                return;
+            }
+
+            showResult('📝 正在测试表单提交...', 'info');
+            
+            const testData = [{
+                expressType: 'TEST',
+                processedCode: 'DEBUG_403_TEST_' + Date.now()
+            }];
+            
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = url;
+            form.target = 'debug_frame_' + Date.now();
+            form.style.display = 'none';
+            
+            const input = document.createElement('input');
+            input.name = 'data';
+            input.value = JSON.stringify(testData);
+            form.appendChild(input);
+            
+            const iframe = document.createElement('iframe');
+            iframe.name = form.target;
+            iframe.style.display = 'none';
+            
+            let formTimeout = setTimeout(() => {
+                showResult(`✅ 表单提交完成\n\n测试数据: ${JSON.stringify(testData, null, 2)}\n\n请检查您的Google Sheet是否有新数据。\n如果没有数据，说明权限或代码有问题。`, 'success');
+                
+                // 清理DOM元素
+                if (document.body.contains(form)) document.body.removeChild(form);
+                if (document.body.contains(iframe)) document.body.removeChild(iframe);
+            }, 5000);
+            
+            iframe.onerror = function() {
+                clearTimeout(formTimeout);
+                showResult('❌ 表单提交失败！\n\n这确认了403权限问题。\n请按照权限修复指南重新设置Apps Script权限。', 'error');
+                
+                // 清理DOM元素
+                if (document.body.contains(form)) document.body.removeChild(form);
+                if (document.body.contains(iframe)) document.body.removeChild(iframe);
+            };
+            
+            document.body.appendChild(form);
+            document.body.appendChild(iframe);
+            form.submit();
+        }
+
+        function clearResults() {
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('result').className = '';
+        }
+
+        // 页面加载时显示说明
+        window.onload = function() {
+            showResult('👋 欢迎使用403错误诊断工具！\n\n请按照步骤进行测试，我们会帮您找出问题所在。', 'info');
+        };
+    </script>
+</body>
+</html>
