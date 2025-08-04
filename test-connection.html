@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>云端连接测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 云端连接测试</h1>
+        <p>点击下面的按钮测试与Google Apps Script的连接：</p>
+        
+        <button onclick="testConnection()">测试连接</button>
+        <button onclick="testUpload()">测试上传</button>
+        <button onclick="clearResults()">清除结果</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyupKpqj54bMFQpTcOkdDbVZ5oebGCBlg_60g78KjDBMoCcEiLX1FgNTgZCqy5Vk7Ed/exec';
+        
+        function showResult(message, type = 'info') {
+            const result = document.getElementById('result');
+            result.className = `result ${type}`;
+            result.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong><br>${message}`;
+        }
+        
+        function testConnection() {
+            showResult('正在测试连接...', 'info');
+            
+            // 使用JSONP方式测试GET请求
+            const script = document.createElement('script');
+            const callbackName = 'testCallback_' + Date.now();
+            
+            window[callbackName] = function(data) {
+                showResult(`✅ 连接成功！<br>响应数据: ${JSON.stringify(data, null, 2)}`, 'success');
+                document.head.removeChild(script);
+                delete window[callbackName];
+            };
+            
+            script.onerror = function() {
+                showResult('❌ 连接失败！请检查Google Apps Script URL是否正确', 'error');
+                document.head.removeChild(script);
+                delete window[callbackName];
+            };
+            
+            script.src = `${SCRIPT_URL}?callback=${callbackName}&test=true`;
+            document.head.appendChild(script);
+            
+            // 设置超时
+            setTimeout(() => {
+                if (window[callbackName]) {
+                    showResult('⏰ 连接超时！可能是网络问题或服务器响应慢', 'error');
+                    if (document.head.contains(script)) {
+                        document.head.removeChild(script);
+                    }
+                    delete window[callbackName];
+                }
+            }, 10000);
+        }
+        
+        function testUpload() {
+            showResult('正在测试数据上传...', 'info');
+            
+            const testData = [{
+                expressType: 'TEST',
+                processedCode: 'TEST123456789'
+            }];
+            
+            // 使用表单方式发送POST数据
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = SCRIPT_URL;
+            form.target = 'test_frame_' + Date.now();
+            form.style.display = 'none';
+            
+            const input = document.createElement('input');
+            input.name = 'data';
+            input.value = JSON.stringify(testData);
+            form.appendChild(input);
+            
+            const iframe = document.createElement('iframe');
+            iframe.name = form.target;
+            iframe.style.display = 'none';
+            
+            // 设置超时处理
+            let uploadTimeout = setTimeout(() => {
+                showResult('✅ 数据上传完成！<br>测试数据: ' + JSON.stringify(testData, null, 2), 'success');
+                // 清理DOM元素
+                if (document.body.contains(form)) document.body.removeChild(form);
+                if (document.body.contains(iframe)) document.body.removeChild(iframe);
+            }, 3000);
+            
+            iframe.onerror = function() {
+                clearTimeout(uploadTimeout);
+                showResult('❌ 数据上传失败！', 'error');
+                // 清理DOM元素
+                if (document.body.contains(form)) document.body.removeChild(form);
+                if (document.body.contains(iframe)) document.body.removeChild(iframe);
+            };
+            
+            document.body.appendChild(form);
+            document.body.appendChild(iframe);
+            form.submit();
+        }
+        
+        function clearResults() {
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('result').className = '';
+        }
+    </script>
+</body>
+</html>

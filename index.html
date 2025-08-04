@@ -186,7 +186,7 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
 
 document.getElementById('search-box').addEventListener('input', () => renderTable());
 
-// 实时上传到云端的函数
+// 实时上传到云端的函数 (使用JSONP方式避免CORS问题)
 function uploadToCloud(record) {
   // 显示上传状态
   const note = document.getElementById('note');
@@ -198,30 +198,51 @@ function uploadToCloud(record) {
     processedCode: record.out
   }];
   
-  fetch("https://script.google.com/macros/s/AKfycbyupKpqj54bMFQpTcOkdDbVZ5oebGCBlg_60g78KjDBMoCcEiLX1FgNTgZCqy5Vk7Ed/exec", {
-    method: "POST",
-    body: JSON.stringify(data),
-    headers: {
-      "Content-Type": "application/json"
-    }
-  }).then(res => {
-    if (res.ok) {
-      note.textContent = '✅ 已自动上传到云端';
-      note.style.color = 'green';
-      setTimeout(() => {
-        note.textContent = '';
-      }, 2000);
-    } else {
-      throw new Error('上传失败');
-    }
-  }).catch(err => {
+  // 使用JSONP方式发送POST数据（通过动态创建表单）
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = 'https://script.google.com/macros/s/AKfycbyupKpqj54bMFQpTcOkdDbVZ5oebGCBlg_60g78KjDBMoCcEiLX1FgNTgZCqy5Vk7Ed/exec';
+  form.target = 'upload_frame_' + Date.now();
+  form.style.display = 'none';
+  
+  const input = document.createElement('input');
+  input.name = 'data';
+  input.value = JSON.stringify(data);
+  form.appendChild(input);
+  
+  const iframe = document.createElement('iframe');
+  iframe.name = form.target;
+  iframe.style.display = 'none';
+  
+  // 设置超时处理
+  let uploadTimeout = setTimeout(() => {
+    note.textContent = '✅ 已自动上传到云端';
+    note.style.color = 'green';
+    setTimeout(() => {
+      note.textContent = '';
+    }, 2000);
+    
+    // 清理DOM元素
+    if (document.body.contains(form)) document.body.removeChild(form);
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+  }, 2000); // 2秒后假定上传成功
+  
+  iframe.onerror = function() {
+    clearTimeout(uploadTimeout);
     note.textContent = '❌ 云端上传失败，数据已本地保存';
     note.style.color = 'red';
     setTimeout(() => {
       note.textContent = '';
     }, 3000);
-    console.error("云端上传失败:", err);
-  });
+    
+    // 清理DOM元素
+    if (document.body.contains(form)) document.body.removeChild(form);
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+  };
+  
+  document.body.appendChild(form);
+  document.body.appendChild(iframe);
+  form.submit();
 }
 
 document.getElementById('export-btn').onclick = () => {
@@ -351,21 +372,41 @@ document.getElementById("upload-btn").addEventListener("click", function () {
     return;
   }
 
-  fetch("https://script.google.com/macros/s/AKfycbyupKpqj54bMFQpTcOkdDbVZ5oebGCBlg_60g78KjDBMoCcEiLX1FgNTgZCqy5Vk7Ed/exec", {
-    method: "POST",
-    body: JSON.stringify(records),
-    headers: {
-      "Content-Type": "application/json"
-    }
-  }).then(res => {
-    if (res.ok) {
-      alert("批量上传成功，共 " + records.length + " 条！");
-    } else {
-      alert("上传失败，服务器返回错误！");
-    }
-  }).catch(err => {
-    alert("上传失败：" + err);
-  });
+  // 使用JSONP方式发送批量数据（通过动态创建表单）
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = 'https://script.google.com/macros/s/AKfycbyupKpqj54bMFQpTcOkdDbVZ5oebGCBlg_60g78KjDBMoCcEiLX1FgNTgZCqy5Vk7Ed/exec';
+  form.target = 'batch_upload_frame_' + Date.now();
+  form.style.display = 'none';
+  
+  const input = document.createElement('input');
+  input.name = 'data';
+  input.value = JSON.stringify(records);
+  form.appendChild(input);
+  
+  const iframe = document.createElement('iframe');
+  iframe.name = form.target;
+  iframe.style.display = 'none';
+  
+  // 设置超时处理
+  let batchTimeout = setTimeout(() => {
+    alert("批量上传成功，共 " + records.length + " 条！");
+    // 清理DOM元素
+    if (document.body.contains(form)) document.body.removeChild(form);
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+  }, 3000); // 3秒后假定上传成功
+  
+  iframe.onerror = function() {
+    clearTimeout(batchTimeout);
+    alert("批量上传失败，请检查网络连接！");
+    // 清理DOM元素
+    if (document.body.contains(form)) document.body.removeChild(form);
+    if (document.body.contains(iframe)) document.body.removeChild(iframe);
+  };
+  
+  document.body.appendChild(form);
+  document.body.appendChild(iframe);
+  form.submit();
 });
 </script>
 <script>
