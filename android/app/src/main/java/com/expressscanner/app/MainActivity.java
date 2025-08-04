@@ -1,16 +1,14 @@
 package com.expressscanner.app;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
+import android.app.Activity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import android.widget.ScrollView;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -18,9 +16,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity {
-    
-    private static final int PERMISSION_REQUEST_CODE = 1001;
+public class MainActivity extends Activity {
     
     private EditText barcodeInput;
     private Button addButton;
@@ -30,125 +26,120 @@ public class MainActivity extends AppCompatActivity {
     private TextView recordsText;
     
     private List<String> scanRecords = new ArrayList<>();
-    private String currentMode = "UPS";
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
         try {
-            // 使用我们的布局文件
-            setContentView(R.layout.activity_main);
-            initViews();
-            setupListeners();
-            requestBasicPermissions();
-            updateDisplay();
-            
-            Toast.makeText(this, "应用启动成功", Toast.LENGTH_SHORT).show();
-            
+            createUI();
+            Toast.makeText(this, "应用启动成功！", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            // 如果布局加载失败，显示错误信息
             Toast.makeText(this, "启动失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
             e.printStackTrace();
-            finish(); // 关闭应用
         }
     }
     
-
-    
-    private void initViews() {
-        try {
-            // 尝试找到我们的自定义控件
-            barcodeInput = findViewById(R.id.barcode_input);
-            addButton = findViewById(R.id.scan_button);
-            exportButton = findViewById(R.id.export_button);
-            clearButton = findViewById(R.id.clear_button);
-            statsText = findViewById(R.id.stats_text);
-            recordsText = findViewById(R.id.empty_text);
-            
-            // 如果找不到控件，创建简单的替代方案
-            if (barcodeInput == null || addButton == null) {
-                Toast.makeText(this, "使用简化界面", Toast.LENGTH_SHORT).show();
-                createFallbackUI();
+    private void createUI() {
+        // 创建主布局
+        LinearLayout mainLayout = new LinearLayout(this);
+        mainLayout.setOrientation(LinearLayout.VERTICAL);
+        mainLayout.setPadding(32, 32, 32, 32);
+        
+        // 标题
+        TextView titleText = new TextView(this);
+        titleText.setText("快递扫码助手 - 基础版");
+        titleText.setTextSize(20);
+        titleText.setPadding(0, 0, 0, 32);
+        mainLayout.addView(titleText);
+        
+        // 输入框
+        barcodeInput = new EditText(this);
+        barcodeInput.setHint("输入条码（可选）");
+        barcodeInput.setPadding(16, 16, 16, 16);
+        mainLayout.addView(barcodeInput);
+        
+        // 按钮布局
+        LinearLayout buttonLayout = new LinearLayout(this);
+        buttonLayout.setOrientation(LinearLayout.HORIZONTAL);
+        buttonLayout.setPadding(0, 16, 0, 16);
+        
+        // 添加按钮
+        addButton = new Button(this);
+        addButton.setText("添加");
+        addButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                addRecord();
             }
-            
-        } catch (Exception e) {
-            Toast.makeText(this, "界面初始化失败，使用备用方案", Toast.LENGTH_SHORT).show();
-            createFallbackUI();
-        }
-    }
-    
-    private void createFallbackUI() {
-        // 创建一个极简的备用界面
-        try {
-            setTitle("快递扫码助手 - 简化版");
-        } catch (Exception e) {
-            // 即使设置标题失败也继续
-        }
-    }
-    
-    private void setupListeners() {
-        try {
-            if (addButton != null) {
-                addButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        addRecord();
-                    }
-                });
+        });
+        buttonLayout.addView(addButton);
+        
+        // 导出按钮
+        exportButton = new Button(this);
+        exportButton.setText("导出");
+        exportButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                exportData();
             }
-            
-            if (exportButton != null) {
-                exportButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        exportData();
-                    }
-                });
+        });
+        buttonLayout.addView(exportButton);
+        
+        // 清除按钮
+        clearButton = new Button(this);
+        clearButton.setText("清除");
+        clearButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                clearRecords();
             }
-            
-            if (clearButton != null) {
-                clearButton.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        clearRecords();
-                    }
-                });
-            }
-            
-        } catch (Exception e) {
-            Toast.makeText(this, "按钮设置失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
+        });
+        buttonLayout.addView(clearButton);
+        
+        mainLayout.addView(buttonLayout);
+        
+        // 统计信息
+        statsText = new TextView(this);
+        statsText.setText("总计: 0 条记录");
+        statsText.setTextSize(16);
+        statsText.setPadding(0, 16, 0, 16);
+        mainLayout.addView(statsText);
+        
+        // 记录显示（使用 ScrollView）
+        ScrollView scrollView = new ScrollView(this);
+        recordsText = new TextView(this);
+        recordsText.setText("暂无记录\n点击添加按钮添加条码");
+        recordsText.setPadding(16, 16, 16, 16);
+        scrollView.addView(recordsText);
+        mainLayout.addView(scrollView);
+        
+        // 设置主布局
+        setContentView(mainLayout);
     }
     
     private void addRecord() {
         try {
-            String barcode = "";
-            if (barcodeInput != null) {
-                barcode = barcodeInput.getText().toString().trim();
-            }
+            String barcode = barcodeInput.getText().toString().trim();
             
             if (barcode.isEmpty()) {
-                // 如果没有输入，生成一个测试条码
+                // 生成测试条码
                 barcode = "TEST" + System.currentTimeMillis();
             }
             
             // 添加记录
             String timestamp = new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date());
-            String record = timestamp + " - " + currentMode + ": " + barcode;
+            String record = timestamp + " - " + barcode;
             scanRecords.add(record);
             
             // 清空输入框
-            if (barcodeInput != null) {
-                barcodeInput.setText("");
-            }
+            barcodeInput.setText("");
             
             updateDisplay();
-            Toast.makeText(this, "已添加记录: " + barcode, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "已添加: " + barcode, Toast.LENGTH_SHORT).show();
             
         } catch (Exception e) {
-            Toast.makeText(this, "添加记录失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            e.printStackTrace();
+            Toast.makeText(this, "添加失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
     
@@ -159,9 +150,8 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
             
-            // 简单导出 - 只显示消息，不实际保存文件
             StringBuilder content = new StringBuilder();
-            content.append("时间,快递,条码\n");
+            content.append("导出数据:\n");
             for (String record : scanRecords) {
                 content.append(record).append("\n");
             }
@@ -170,7 +160,6 @@ public class MainActivity extends AppCompatActivity {
             
         } catch (Exception e) {
             Toast.makeText(this, "导出失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            e.printStackTrace();
         }
     }
     
@@ -182,72 +171,32 @@ public class MainActivity extends AppCompatActivity {
             
         } catch (Exception e) {
             Toast.makeText(this, "清除失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            e.printStackTrace();
         }
     }
     
     private void updateDisplay() {
         try {
-            // 更新统计信息
-            if (statsText != null) {
-                String stats = "总计: " + scanRecords.size() + " 条记录";
-                statsText.setText(stats);
-            }
+            // 更新统计
+            statsText.setText("总计: " + scanRecords.size() + " 条记录");
             
             // 更新记录显示
-            if (recordsText != null) {
-                if (scanRecords.isEmpty()) {
-                    recordsText.setText("暂无记录\n点击添加按钮添加条码");
-                } else {
-                    StringBuilder display = new StringBuilder();
-                    display.append("最近记录:\n");
-                    int showCount = Math.min(5, scanRecords.size());
-                    for (int i = scanRecords.size() - showCount; i < scanRecords.size(); i++) {
-                        display.append(scanRecords.get(i)).append("\n");
-                    }
-                    recordsText.setText(display.toString());
+            if (scanRecords.isEmpty()) {
+                recordsText.setText("暂无记录\n点击添加按钮添加条码");
+            } else {
+                StringBuilder display = new StringBuilder();
+                display.append("记录列表:\n\n");
+                
+                // 显示最近10条记录
+                int startIndex = Math.max(0, scanRecords.size() - 10);
+                for (int i = startIndex; i < scanRecords.size(); i++) {
+                    display.append(scanRecords.get(i)).append("\n");
                 }
+                
+                recordsText.setText(display.toString());
             }
             
         } catch (Exception e) {
             Toast.makeText(this, "更新显示失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            e.printStackTrace();
-        }
-    }
-    
-    private void requestBasicPermissions() {
-        try {
-            String[] permissions = {
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            };
-            
-            boolean needRequest = false;
-            for (String permission : permissions) {
-                if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                    needRequest = true;
-                    break;
-                }
-            }
-            
-            if (needRequest) {
-                ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQUEST_CODE);
-            }
-            
-        } catch (Exception e) {
-            Toast.makeText(this, "权限请求失败: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-    
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        
-        try {
-            if (requestCode == PERMISSION_REQUEST_CODE) {
-                Toast.makeText(this, "权限处理完成", Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            // 忽略权限处理错误
         }
     }
 }
