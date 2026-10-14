@@ -85,6 +85,7 @@ document.addEventListener('touchmove', function (e) {
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <script>
 let mode = 'UPS', recs = [], page = 1, perPage = 10;
+let lastScan = { code: '', time: 0 };
 
 window.onload = () => document.getElementById('barcode-input').focus();
 
@@ -189,8 +190,17 @@ function deleteRow(index) {
 
 document.getElementById('barcode-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') {
-    const orig = e.target.value.trim();
+       const orig = e.target.value.trim();
     const out = formatCode(orig);
+
+    // 同一个条码 3 秒内连续扫到，视为扫码器多次扫描，直接忽略
+    const nowMs = Date.now();
+    if (out && out === lastScan.code && nowMs - lastScan.time < 3000) {
+      lastScan.time = nowMs;
+      e.target.value = '';
+      return;
+    }
+    lastScan = { code: out, time: nowMs };
     const dedup = document.getElementById('dedup-toggle').checked;
     const exists = recs.some(r => r.out === out);
     const note = document.getElementById('note');
