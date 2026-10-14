@@ -114,7 +114,40 @@ function formatCode(code) {
   return '';
 }
 
-function updateStats() {
+// 重复提示音：两声低沉的"嘟嘟"
+function playDupSound() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!window._dupAC) window._dupAC = new AC();
+    const ac = window._dupAC;
+    if (ac.state === 'suspended') ac.resume();
+
+    [0, 0.25].forEach(delay => {
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.type = 'square';
+      osc.frequency.value = 300;
+      gain.gain.value = 0.3;
+      osc.connect(gain);
+      gain.connect(ac.destination);
+      const t = ac.currentTime + delay;
+      osc.start(t);
+      osc.stop(t + 0.18);
+    });
+  } catch (e) {}
+}
+
+// 手机浏览器要求用户操作后才能出声，首次触摸/按键时先"解锁"
+['touchstart', 'click', 'keydown'].forEach(evt =>
+  document.addEventListener(evt, () => {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC && !window._dupAC) window._dupAC = new AC();
+    if (window._dupAC && window._dupAC.state === 'suspended') window._dupAC.resume();
+  }, { once: true })
+);
+  
+  function updateStats() {
   const statMap = {};
   recs.forEach(r => statMap[r.mode] = (statMap[r.mode] || 0) + 1);
   const statText = Object.entries(statMap).map(([k,v]) => `${k}: ${v} 件`).join('，');
@@ -179,6 +212,10 @@ if (window.AppInventor) window.AppInventor.setWebViewString("playSound");
       note.textContent = '';
     } else {
       note.textContent = out ? '⚠️ 已存在该条码，未重复添加。' : '❌ 条码格式不匹配，未识别。';
+      if (out) {
+  playDupSound();
+  navigator.vibrate && navigator.vibrate([200, 100, 200]);
+}
     }
     e.target.value = '';
   }
