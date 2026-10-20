@@ -199,7 +199,7 @@ document.getElementById('barcode-input').addEventListener('keydown', e => {
 
     // 同一个条码 8 秒内连续扫到，视为扫码器多次扫描，直接忽略
     const nowMs = Date.now();
-    if (out && out === lastScan.code && nowMs - lastScan.time < 8000) {
+    if (out && out === lastScan.code && nowMs - lastScan.time < 4000) {
       lastScan.time = nowMs;
       e.target.value = '';
       return;
